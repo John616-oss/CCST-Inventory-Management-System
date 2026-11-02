@@ -1,0 +1,19 @@
+<?php require_once __DIR__.'/functions.php'; require_login(); $u=current_user(); ?>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title><?=e(APP_NAME)?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="<?=e(BASE_URL)?>/assets/style.css?v=readable-1" rel="stylesheet">
+<link href="<?=e(BASE_URL)?>/assets/system.css?v=readable-3" rel="stylesheet">
+<?php if(basename($_SERVER['PHP_SELF'])==='my_id.php'): ?><link href="<?=e(BASE_URL)?>/assets/id-card.css" rel="stylesheet"><?php endif; ?></head><body>
+<nav class="navbar navbar-dark topbar px-3"><a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="<?=e(BASE_URL)?>/index.php"><img class="brand-logo" src="<?=e(BASE_URL)?>/assets/725698283_122272196210063653_4714758265439461367_n.jpg" alt="Clark College of Science and Technology logo" width="32" height="32" style="width:32px;height:32px;max-width:none">CCST</a><div class="text-white small"><?=e($u['full_name'])?> · <?=e(ucfirst($u['role']))?> <a class="btn btn-sm btn-light ms-2" href="<?=e(BASE_URL)?>/logout.php">Logout</a></div></nav>
+<div class="app"><aside class="sidebar">
+<a href="<?=e(BASE_URL)?>/index.php"><i class="bi bi-speedometer2 nav-icon" aria-hidden="true"></i>Dashboard</a>
+<?php if($u['role']==='registrar'): ?>
+<a href="<?=e(BASE_URL)?>/module.php?m=students"><i class="bi bi-people-fill nav-icon" aria-hidden="true"></i>Students</a><a href="<?=e(BASE_URL)?>/module.php?m=teachers"><i class="bi bi-person-badge-fill nav-icon" aria-hidden="true"></i>Teachers</a><a href="<?=e(BASE_URL)?>/module.php?m=courses"><i class="bi bi-journal-bookmark-fill nav-icon" aria-hidden="true"></i>Courses</a><a href="<?=e(BASE_URL)?>/module.php?m=sections"><i class="bi bi-diagram-3-fill nav-icon" aria-hidden="true"></i>Sections</a><a href="<?=e(BASE_URL)?>/module.php?m=subjects"><i class="bi bi-book-half nav-icon" aria-hidden="true"></i>Subjects</a><a href="<?=e(BASE_URL)?>/module.php?m=teacher_assignments"><i class="bi bi-person-workspace nav-icon" aria-hidden="true"></i>Teacher Assignments</a><a href="<?=e(BASE_URL)?>/module.php?m=enrollments"><i class="bi bi-clipboard2-check-fill nav-icon" aria-hidden="true"></i>Enrollment</a>
+<a href="<?=e(BASE_URL)?>/attendance.php"><i class="bi bi-qr-code-scan nav-icon" aria-hidden="true"></i>Attendance / QR Scanner</a><a href="<?=e(BASE_URL)?>/reports.php"><i class="bi bi-bar-chart-line-fill nav-icon" aria-hidden="true"></i>Reports</a><a href="<?=e(BASE_URL)?>/logs.php"><i class="bi bi-activity nav-icon" aria-hidden="true"></i>Activity Logs</a>
+<?php elseif($u['role']==='teacher'): ?>
+<a href="<?=e(BASE_URL)?>/teacher/my_classes.php"><i class="bi bi-journal-text nav-icon" aria-hidden="true"></i>My Classes</a><a href="<?=e(BASE_URL)?>/teacher/students.php"><i class="bi bi-people-fill nav-icon" aria-hidden="true"></i>My Students</a><a href="<?=e(BASE_URL)?>/attendance.php"><i class="bi bi-qr-code-scan nav-icon" aria-hidden="true"></i>QR Attendance</a><a href="<?=e(BASE_URL)?>/reports.php"><i class="bi bi-bar-chart-line-fill nav-icon" aria-hidden="true"></i>Class Attendance Report</a>
+<?php elseif($u['role']==='student'): ?>
+<a href="<?=e(BASE_URL)?>/student/profile.php"><i class="bi bi-person-vcard nav-icon" aria-hidden="true"></i>My Profile</a><a href="<?=e(BASE_URL)?>/my_id.php"><i class="bi bi-person-badge nav-icon" aria-hidden="true"></i>My ID Card</a><a href="<?=e(BASE_URL)?>/student/attendance.php"><i class="bi bi-calendar2-check nav-icon" aria-hidden="true"></i>My Attendance</a>
+<?php endif; ?>
+</aside><main class="content"><?php show_flash(); ?>
