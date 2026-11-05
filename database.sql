@@ -1,8 +1,8 @@
-CREATE DATABASE IF NOT EXISTS ccst_student CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE ccst_student;
+CREATE DATABASE IF NOT EXISTS ccst_inventory CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE ccst_inventory;
 CREATE TABLE users(
  id INT AUTO_INCREMENT PRIMARY KEY, full_name VARCHAR(150) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE,
- password VARCHAR(255) NOT NULL, role ENUM('registrar','teacher','student') NOT NULL DEFAULT 'student',
+ password VARCHAR(255) NOT NULL, role ENUM('admin','staff','maintenance') NOT NULL DEFAULT 'staff',
  is_verified TINYINT(1) NOT NULL DEFAULT 0, status ENUM('active','inactive') DEFAULT 'active',
  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
@@ -53,3 +53,30 @@ CREATE TABLE activity_logs(
 ) ENGINE=InnoDB;
 INSERT INTO courses(code,name) VALUES('BSIT','Bachelor of Science in Information Technology'),('BSCS','Bachelor of Science in Computer Science'),('BSA','Bachelor of Science in Accountancy');
 INSERT INTO subjects(subject_code,subject_name,units) VALUES('IT101','Introduction to IT',3),('IT102','Computer Programming',3),('IT201','Web Systems',3);
+CREATE TABLE inventory_items(
+ id INT AUTO_INCREMENT PRIMARY KEY,asset_tag VARCHAR(40) NOT NULL UNIQUE,item_name VARCHAR(150) NOT NULL,category VARCHAR(100) NOT NULL,
+ description TEXT NULL,quantity INT UNSIGNED NOT NULL DEFAULT 1,unit VARCHAR(30) NOT NULL DEFAULT 'piece',location VARCHAR(150) NOT NULL,
+ custodian VARCHAR(150) NULL,condition_status ENUM('New','Good','Needs Repair','Damaged') NOT NULL DEFAULT 'Good',
+ status ENUM('Available','In Use','Under Repair','Disposed') NOT NULL DEFAULT 'Available',acquisition_date DATE NULL,acquisition_cost DECIMAL(12,2) NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ INDEX idx_inventory_category(category),INDEX idx_inventory_location(location),INDEX idx_inventory_status(status)
+) ENGINE=InnoDB;
+CREATE TABLE maintenance_history(
+ id BIGINT AUTO_INCREMENT PRIMARY KEY,inventory_item_id INT NOT NULL,user_id INT NOT NULL,
+ action ENUM('started','completed') NOT NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(inventory_item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT,
+ INDEX idx_maintenance_history_item(inventory_item_id,created_at),INDEX idx_maintenance_history_user(user_id)
+) ENGINE=InnoDB;
+CREATE TABLE equipment_requests(
+ id BIGINT AUTO_INCREMENT PRIMARY KEY,requester_id INT NOT NULL,inventory_item_id INT NOT NULL,
+ quantity INT UNSIGNED NOT NULL DEFAULT 1,purpose VARCHAR(255) NOT NULL,expected_return_date DATE NOT NULL,
+ status ENUM('pending','approved','rejected','returned','cancelled') NOT NULL DEFAULT 'pending',
+ reviewed_by INT NULL,reviewed_at DATETIME NULL,review_note VARCHAR(500) NULL,
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ FOREIGN KEY(requester_id) REFERENCES users(id) ON DELETE RESTRICT,
+ FOREIGN KEY(inventory_item_id) REFERENCES inventory_items(id) ON DELETE RESTRICT,
+ FOREIGN KEY(reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+ INDEX idx_equipment_request_status(status,created_at),INDEX idx_equipment_request_item(inventory_item_id,status),
+ INDEX idx_equipment_request_user(requester_id,created_at)
+) ENGINE=InnoDB;

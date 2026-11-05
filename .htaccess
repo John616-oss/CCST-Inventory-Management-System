@@ -1,4 +1,8 @@
 Options -Indexes
+RewriteEngine On
+RewriteRule ^teacher/dashboard\.php$ /ccst_system/staff/dashboard.php [R=302,L]
+RewriteRule ^teacher/my_classes\.php$ /ccst_system/staff/my_classes.php [R=302,L]
+RewriteRule ^teacher/students\.php$ /ccst_system/staff/students.php [R=302,L]
 <FilesMatch "^(database\.sql|README\.md)$">
   Require all denied
 </FilesMatch>

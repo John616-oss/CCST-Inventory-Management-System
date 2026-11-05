@@ -1,40 +1,38 @@
-# CCST Student Management System
+# CCST School Inventory System
 
 ## Stack
-PHP 8.1+, MySQL 8 / MariaDB, MySQLi, HTML/CSS/JavaScript, Bootstrap 5.3.
-Designed for XAMPP local demonstration.
+PHP 8.1+, MySQL 8 / MariaDB, MySQLi, HTML/CSS/JavaScript, Bootstrap 5.3. Designed for XAMPP.
 
 ## Installation
-1. Install/start Apache and MySQL in XAMPP.
-2. Copy this folder to `C:\xampp\htdocs\ccst_system`.
-3. Open phpMyAdmin and import `database.sql`.
-4. Edit `config/config.php` if your MySQL host/user/password/database differ.
-5. To send verification emails through Gmail SMTP, enable 2-Step Verification on the Gmail account and create a Google App Password. Add these Apache environment variables in XAMPP's Apache configuration, then restart Apache: `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USERNAME=your Gmail address`, `SMTP_PASSWORD=your 16-character Google App Password`, and `SMTP_FROM_EMAIL=your Gmail address`. The app uses TLS on port 587. Never use your normal Gmail password. For another SMTP provider, replace the host, port, username, password, sender address, and `SMTP_ENCRYPTION` (`tls` or `ssl`) as required. If SMTP is not configured, registration shows a local verification link for the demo.
-6. Set `BASE_URL` in config/config.php to your exact local URL.
-7. Visit `http://localhost/ccst_system/install.php` and create the first Registrar.
-8. **Delete `install.php` after creating the Registrar account.**
-9. Sign in at `login.php`.
+1. Start Apache and MySQL in XAMPP.
+2. Import `database.sql` in phpMyAdmin.
+3. Check database settings and `BASE_URL` in `config/config.php`.
+4. Open `http://localhost/ccst_system/install.php` and create the first Admin account.
+5. Delete `install.php` after setup, then sign in at `login.php`.
 
-## Important demo notes
-- Initial registrar is created through install.php; there is no default hard-coded password.
-- Public registration creates unverified student accounts. SMTP must be configured to receive verification and password-reset emails; locally, registration and password-reset requests show a demo link when delivery is unavailable.
-- Registrar creates student profiles and can associate user accounts later by setting `students.user_id` in the database. This starter includes the student ID view for linked accounts.
-- QR value is the unique student_code. Camera scanning uses html5-qrcode CDN; camera permission requires localhost or HTTPS. A USB QR/barcode scanner that types into the input works as keyboard input.
-- Attendance has a unique constraint for student + subject + date to stop duplicates. For multiple class sessions per day, add a `class_session_id` table and change the unique key.
-- This is an educational starter implementation. Test every role and workflow, configure HTTPS before deployment, validate uploaded photos if enabling uploads, and do not expose database credentials.
+For an existing database, run `migrations/convert_inventory_roles.sql` once in phpMyAdmin. It keeps existing records, maps Registrar to Admin, preserves Maintenance, maps other old roles to Staff, and creates the inventory table. Users should sign out and back in after migration.
 
-## Data structure demonstration
-See `includes/data_structures.php`: FIFO attendance queue (`SplQueue`), stack, priority queue (`SplPriorityQueue`), course tree, and associative-array student hash lookup. These classes are reusable examples; the live attendance insert currently uses database constraints for duplicate prevention.
+If the earlier version of that migration was already applied and Maintenance was converted to Staff, run `migrations/restore_maintenance_role.sql` to add the role back to the database. Existing users converted to Staff cannot be identified automatically; update the intended accounts to `maintenance` in phpMyAdmin after checking which users they are.
 
-## Before final defense
-Demonstrate account creation + received email verification, all three roles, CRUD for students/teachers/courses (and other modules), one attendance scan, filtering/printing reports, activity logs, unauthorized access rejection, and explain the database relationships and data structures.
+## Inventory workflow
+- The dashboard summarizes equipment records, tracked quantity, items needing attention, and locations.
+- Staff accounts open a general inventory dashboard; Maintenance accounts open a separate scan-only workbench.
+- Registration offers Staff and Maintenance roles. The first Admin account is created through `install.php`.
+- Maintenance accounts cannot open the full equipment register. They scan an equipment QR or a printed room QR and see only active repair items for that scan; they can mark a repair Under Repair or complete it.
+- Staff/Admin can print room QR labels from the room column in `inventory.php`.
+- Repair start/completion is attributed to the Maintenance account. Staff/Admin can see the latest repairer and full per-item history from the inventory list.
+- Maintenance users can update their display name and password from My Profile.
+- Staff can submit equipment borrowing requests from `requests.php`; Admin reviews them in `approval_requests.php` and can approve, reject, or record a return. Approved quantities are reserved until returned.
+- Admin and Staff can review filtered inventory and borrowing reports from `reports.php`, print them, or export the filtered tables as CSV.
+- Add equipment from `inventory.php`. Asset tags are generated as `CCST-INV-YYYY-NNNN` and remain fixed after creation.
+- Record equipment such as PCs, TVs, printers, projectors, furniture, and network devices. Include quantity, room, condition, status, custodian, acquisition date, and cost as available.
+- Print an item QR label from the QR button in the equipment list. The QR contains its asset tag.
+- Scan labels from `scan.php` using a camera on localhost/HTTPS, a USB scanner that types into the tag field, or manual entry.
 
+QR generation and camera scanning use CDN-hosted JavaScript libraries and require an internet connection. Email verification and password reset use the SMTP settings described in `config/mail.php`; on localhost, registration displays a local verification link if SMTP is unavailable.
 
-## Role-based pages (updated)
-After login, users are redirected by their database role:
-- Registrar: `registrar/dashboard.php` (manage records, reports, logs)
-- Teacher: `teacher/dashboard.php` and `teacher/my_classes.php`
-- Student: `student/dashboard.php`, `student/profile.php`, and `student/attendance.php`
-The root `index.php` is now a role-based dispatcher. Each role page uses server-side `require_role()` checks.
+The system keeps existing school records in the database during the conversion, but they are no longer part of the inventory navigation. Back up the database before applying migrations. Configure HTTPS and protect database credentials before any public deployment.
 
-**Important account linking:** a teacher account must be linked to a row in `teachers.user_id`, and a student account to a row in `students.user_id`. The starter CRUD does not yet provide a complete account-linking UI; for a demo, link records in phpMyAdmin after creating verified accounts. Never give a user a role by trusting a form field; role is read from the database at login.
+For an existing inventory database, apply `migrations/add_maintenance_history.sql` to create the repair attribution table. The app also creates it automatically when an inventory or scan page is first opened.
+
+For existing databases, apply `migrations/add_equipment_requests.sql` to create the borrowing approval table. The app can also bootstrap it automatically when an Admin or Staff page is opened.

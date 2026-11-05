@@ -6,14 +6,86 @@ function redirect(string $to): never {
     if (!preg_match('~^(https?://|/)~i', $to)) $to = rtrim(BASE_URL, '/') . '/' . ltrim($to, '/');
     header('Location: ' . $to); exit;
 }
+$legacyRoutes=[
+    '/attendance.php'=>'scan.php',
+    '/module.php'=>'inventory.php',
+    '/my_id.php'=>'index.php',
+    '/registrar/dashboard.php'=>'index.php',
+    '/student/attendance.php'=>'index.php',
+    '/student/dashboard.php'=>'index.php',
+    '/student/profile.php'=>'index.php',
+    '/staff/legacy_dashboard.php'=>'staff/dashboard.php',
+    '/staff/my_classes.php'=>'staff/dashboard.php',
+    '/staff/students.php'=>'inventory.php'
+];
+$scriptPath=str_replace('\\','/',$_SERVER['SCRIPT_NAME']??'');
+foreach($legacyRoutes as $legacyPath=>$destination){
+    if(str_ends_with($scriptPath,$legacyPath))redirect($destination);
+}
 function role_home(?string $role=null): string {
     $role = $role ?? (current_user()['role'] ?? '');
-    return match ($role) {
-        'registrar' => 'registrar/dashboard.php',
-        'teacher' => 'teacher/dashboard.php',
-        'student' => 'student/dashboard.php',
-        default => 'login.php'
+    return match($role){
+        'admin'=>'index.php',
+        'staff'=>'staff/dashboard.php',
+        'maintenance'=>'maintenance/dashboard.php',
+        default=>$role!==''?'index.php':'login.php'
     };
+}
+function ensure_inventory_table(mysqli $conn): void {
+    $conn->query("CREATE TABLE IF NOT EXISTS inventory_items (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        asset_tag VARCHAR(40) NOT NULL UNIQUE,
+        item_name VARCHAR(150) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        description TEXT NULL,
+        quantity INT UNSIGNED NOT NULL DEFAULT 1,
+        unit VARCHAR(30) NOT NULL DEFAULT 'piece',
+        location VARCHAR(150) NOT NULL,
+        custodian VARCHAR(150) NULL,
+        condition_status ENUM('New','Good','Needs Repair','Damaged') NOT NULL DEFAULT 'Good',
+        status ENUM('Available','In Use','Under Repair','Disposed') NOT NULL DEFAULT 'Available',
+        acquisition_date DATE NULL,
+        acquisition_cost DECIMAL(12,2) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_inventory_category(category),
+        INDEX idx_inventory_location(location),
+        INDEX idx_inventory_status(status)
+    ) ENGINE=InnoDB");
+    $conn->query("CREATE TABLE IF NOT EXISTS maintenance_history (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        inventory_item_id INT NOT NULL,
+        user_id INT NOT NULL,
+        action ENUM('started','completed') NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(inventory_item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
+        FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT,
+        INDEX idx_maintenance_history_item(inventory_item_id,created_at),
+        INDEX idx_maintenance_history_user(user_id)
+    ) ENGINE=InnoDB");
+}
+function ensure_equipment_requests_table(mysqli $conn): void {
+    ensure_inventory_table($conn);
+    $conn->query("CREATE TABLE IF NOT EXISTS equipment_requests (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        requester_id INT NOT NULL,
+        inventory_item_id INT NOT NULL,
+        quantity INT UNSIGNED NOT NULL DEFAULT 1,
+        purpose VARCHAR(255) NOT NULL,
+        expected_return_date DATE NOT NULL,
+        status ENUM('pending','approved','rejected','returned','cancelled') NOT NULL DEFAULT 'pending',
+        reviewed_by INT NULL,
+        reviewed_at DATETIME NULL,
+        review_note VARCHAR(500) NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY(requester_id) REFERENCES users(id) ON DELETE RESTRICT,
+        FOREIGN KEY(inventory_item_id) REFERENCES inventory_items(id) ON DELETE RESTRICT,
+        FOREIGN KEY(reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_equipment_request_status(status,created_at),
+        INDEX idx_equipment_request_item(inventory_item_id,status),
+        INDEX idx_equipment_request_user(requester_id,created_at)
+    ) ENGINE=InnoDB");
 }
 function csrf_token(): string {
     if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32));

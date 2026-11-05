@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS equipment_requests(
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    requester_id INT NOT NULL,
+    inventory_item_id INT NOT NULL,
+    quantity INT UNSIGNED NOT NULL DEFAULT 1,
+    purpose VARCHAR(255) NOT NULL,
+    expected_return_date DATE NOT NULL,
+    status ENUM('pending','approved','rejected','returned','cancelled') NOT NULL DEFAULT 'pending',
+    reviewed_by INT NULL,
+    reviewed_at DATETIME NULL,
+    review_note VARCHAR(500) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY(requester_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY(inventory_item_id) REFERENCES inventory_items(id) ON DELETE RESTRICT,
+    FOREIGN KEY(reviewed_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_equipment_request_status(status,created_at),
+    INDEX idx_equipment_request_item(inventory_item_id,status),
+    INDEX idx_equipment_request_user(requester_id,created_at)
+) ENGINE=InnoDB;

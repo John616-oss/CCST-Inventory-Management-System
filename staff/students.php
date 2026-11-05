@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__.'/../includes/functions.php';
-require_role(['teacher']);
+require_role(['staff']);
 
 $uid=(int)current_user()['id'];
 $search=trim($_GET['q']??'');
