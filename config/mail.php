@@ -1,13 +1,13 @@
 <?php
 $host = getenv('SMTP_HOST') ?: 'smtp.gmail.com';
 $port = (int)(getenv('SMTP_PORT') ?: 587);
-$username = getenv('SMTP_USERNAME') ?: 'amaldaverzosa3@gmail.com';
-$password = getenv('SMTP_PASSWORD') ?: 'egcd mrwc gojt aodg';
+$username = getenv('SMTP_USERNAME') ?: '';
+$password = getenv('SMTP_PASSWORD') ?: '';
 $fromEmail = getenv('SMTP_FROM_EMAIL') ?: $username;
 $encryption = getenv('SMTP_ENCRYPTION') ?: 'tls';
 
 return [
-    'enabled' => !str_contains($username, 'YOUR_') && !str_contains($password, 'YOUR_'),
+    'enabled' => $username !== '' && $password !== '',
     'host' => $host,
     'port' => $port,
     'username' => $username,
