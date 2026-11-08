@@ -1,8 +1,8 @@
 <?php
 $host = getenv('SMTP_HOST') ?: 'smtp.gmail.com';
 $port = (int)(getenv('SMTP_PORT') ?: 587);
-$username = getenv('SMTP_USERNAME') ?: '';
-$password = getenv('SMTP_PASSWORD') ?: '';
+$username = getenv('SMTP_USERNAME') ?: 'amaldaverzosa@gmail.com';
+$password = getenv('SMTP_PASSWORD') ?: 'egcd mrwc gojt aodg';
 $fromEmail = getenv('SMTP_FROM_EMAIL') ?: $username;
 $encryption = getenv('SMTP_ENCRYPTION') ?: 'tls';
 
