@@ -9,7 +9,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $requestId=(int)($_POST['request_id']??0);
     $action=$_POST['request_action']??'';
     $reviewNote=trim($_POST['review_note']??'');
-    if(!in_array($action,['approve','reject','return'],true)||$requestId<1||strlen($reviewNote)>500){
+    if(!in_array($action,['approve','reject'],true)||$requestId<1||strlen($reviewNote)>500||($action==='reject'&&$reviewNote==='')){
         flash('Invalid request action.','error');
         redirect('approval_requests.php');
     }
@@ -37,7 +37,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             if((int)$request['quantity']>$available)throw new DomainException('Only '.$available.' unit(s) are available; this request is still pending.');
             $update=$conn->prepare("UPDATE equipment_requests SET status='approved',reviewed_by=?,reviewed_at=NOW(),review_note=? WHERE id=? AND status='pending'");
             $update->bind_param('isi',$adminId,$reviewNote,$requestId);
-            $message='Request approved. The borrowed quantity is now reserved.';
+            $message='Request approved. Staff can prepare the equipment for release.';
             $logAction='APPROVE EQUIPMENT REQUEST';
         }elseif($action==='reject'){
             if($request['status']!=='pending')throw new DomainException('Only pending requests can be rejected.');
@@ -46,16 +46,14 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $message='Request rejected.';
             $logAction='REJECT EQUIPMENT REQUEST';
         }else{
-            if($request['status']!=='approved')throw new DomainException('Only approved requests can be marked returned.');
-            $update=$conn->prepare("UPDATE equipment_requests SET status='returned',review_note=CASE WHEN ?='' THEN review_note ELSE ? END WHERE id=? AND status='approved'");
-            $update->bind_param('ssi',$reviewNote,$reviewNote,$requestId);
-            $message='Equipment return recorded; the units are available again.';
-            $logAction='RECORD EQUIPMENT RETURN';
+            throw new DomainException('Invalid approval action.');
         }
         $update->execute();
         if(!$update->affected_rows)throw new DomainException('The request changed. Refresh and review it again.');
         $conn->commit();
-        log_action($logAction,'BR-'.str_pad((string)$requestId,5,'0',STR_PAD_LEFT).' · '.$request['asset_tag']);
+        $logDetails='BR-'.str_pad((string)$requestId,5,'0',STR_PAD_LEFT).' · '.$request['asset_tag'];
+        if($reviewNote!=='')$logDetails.=' · Note: '.$reviewNote;
+        log_action($logAction,$logDetails);
         flash($message);
     }catch(DomainException $e){
         try{$conn->rollback();}catch(Throwable $ignored){}
@@ -118,8 +116,8 @@ include __DIR__.'/includes/header.php';
         <div class="approval-table-heading"><h2>Borrowing requests</h2><span><?=number_format($requests->num_rows)?> shown, up to 300</span></div>
         <div class="table-responsive"><table class="table table-hover align-middle approval-table"><thead><tr><th>#</th><th>Request ID</th><th>Requester</th><th>Equipment</th><th>Qty</th><th>Purpose</th><th>Request date</th><th>Expected return</th><th>Status</th><th>Actions</th></tr></thead><tbody>
         <?php if($requests->num_rows): while($request=$requests->fetch_assoc()): ?><tr><td><?=number_format((int)$request['id'])?></td><td class="inventory-tag">BR-<?=str_pad((string)$request['id'],5,'0',STR_PAD_LEFT)?></td><td><strong><?=e($request['requester_name'])?></strong><small class="d-block text-secondary"><?=e($request['requester_email'])?></small></td><td><strong><?=e($request['item_name'])?></strong><small class="d-block text-secondary"><?=e($request['asset_tag'])?> · <?=e($request['location'])?></small></td><td><?=number_format((int)$request['quantity'])?></td><td><?=e($request['purpose'])?></td><td><?=e(date('M j, Y g:i A',strtotime($request['created_at'])))?></td><td><?=e(date('M j, Y',strtotime($request['expected_return_date'])))?></td><td><span class="request-status status-<?=e($request['status'])?>"><?=e(ucfirst($request['status']))?></span><?php if($request['reviewer_name']): ?><small class="d-block text-secondary">By <?=e($request['reviewer_name'])?></small><?php endif; ?><?php if($request['review_note']): ?><small class="d-block text-secondary"><?=e($request['review_note'])?></small><?php endif; ?></td><td class="approval-actions">
-            <?php if($request['status']==='pending'): ?><form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="request_id" value="<?=$request['id']?>"><button class="btn btn-sm btn-success" name="request_action" value="approve" title="Approve request"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Approve</span></button></form><form method="post" class="approval-reject-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="request_id" value="<?=$request['id']?>"><button class="btn btn-sm btn-danger" name="request_action" value="reject" title="Reject request"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Reject</span></button></form>
-            <?php elseif($request['status']==='approved'): ?><form method="post" onsubmit="return confirm('Record this equipment as returned?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="request_id" value="<?=$request['id']?>"><button class="btn btn-sm btn-outline-primary" name="request_action" value="return" title="Mark returned"><i class="bi bi-box-arrow-in-left" aria-hidden="true"></i><span>Returned</span></button></form><?php else: ?><span class="approval-no-action">—</span><?php endif; ?>
+            <?php if($request['status']==='pending'): ?><form method="post" class="approval-approve-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="request_id" value="<?=$request['id']?>"><details class="approval-decision-details"><summary class="btn btn-sm btn-success"><i class="bi bi-check-circle" aria-hidden="true"></i><span>Approve</span></summary><div><label>Approval note (optional)<textarea class="form-control form-control-sm" name="review_note" maxlength="500" rows="2"></textarea></label><button class="btn btn-sm btn-success" name="request_action" value="approve">Confirm approval</button></div></details></form><form method="post" class="approval-reject-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="request_id" value="<?=$request['id']?>"><details class="approval-decision-details"><summary class="btn btn-sm btn-danger"><i class="bi bi-x-circle" aria-hidden="true"></i><span>Reject</span></summary><div><label>Rejection reason <textarea class="form-control form-control-sm" name="review_note" maxlength="500" rows="2" required></textarea></label><button class="btn btn-sm btn-danger" name="request_action" value="reject">Confirm rejection</button></div></details></form>
+            <?php elseif($request['status']==='approved'): ?><span class="approval-no-action">Awaiting Staff release / return</span><?php else: ?><span class="approval-no-action">—</span><?php endif; ?>
         </td></tr><?php endwhile; else: ?><tr><td colspan="10" class="text-center py-5"><strong>No borrowing requests found</strong><br><span class="muted">New Staff requests will appear here.</span></td></tr><?php endif; ?>
         </tbody></table></div>
         <div class="approval-note"><i class="bi bi-info-circle-fill" aria-hidden="true"></i><span><strong>Approval note:</strong> Approval reserves the requested units. Mark the request Returned when the equipment is received back to restore its availability.</span></div>

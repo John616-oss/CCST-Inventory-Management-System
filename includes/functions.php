@@ -57,12 +57,23 @@ function ensure_inventory_table(mysqli $conn): void {
         inventory_item_id INT NOT NULL,
         user_id INT NOT NULL,
         action ENUM('started','completed') NOT NULL,
+        work_description TEXT NULL,
+        parts_replaced TEXT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(inventory_item_id) REFERENCES inventory_items(id) ON DELETE CASCADE,
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT,
         INDEX idx_maintenance_history_item(inventory_item_id,created_at),
         INDEX idx_maintenance_history_user(user_id)
     ) ENGINE=InnoDB");
+    $historyColumns=$conn->query('SHOW COLUMNS FROM maintenance_history');
+    $hasWorkDescription=false;
+    $hasPartsReplaced=false;
+    while($column=$historyColumns->fetch_assoc()){
+        if($column['Field']==='work_description')$hasWorkDescription=true;
+        if($column['Field']==='parts_replaced')$hasPartsReplaced=true;
+    }
+    if(!$hasWorkDescription)$conn->query('ALTER TABLE maintenance_history ADD COLUMN work_description TEXT NULL AFTER action');
+    if(!$hasPartsReplaced)$conn->query('ALTER TABLE maintenance_history ADD COLUMN parts_replaced TEXT NULL AFTER work_description');
 }
 function ensure_equipment_requests_table(mysqli $conn): void {
     ensure_inventory_table($conn);
@@ -87,6 +98,40 @@ function ensure_equipment_requests_table(mysqli $conn): void {
         INDEX idx_equipment_request_user(requester_id,created_at)
     ) ENGINE=InnoDB");
 }
+function ensure_system_settings_table(mysqli $conn): void {
+    $conn->query("CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key VARCHAR(64) PRIMARY KEY,
+        setting_value TEXT NOT NULL,
+        updated_by INT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB");
+}
+function ensure_system_backups_table(mysqli $conn): void {
+    $conn->query("CREATE TABLE IF NOT EXISTS system_backups (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        file_name VARCHAR(255) NOT NULL UNIQUE,
+        file_size BIGINT UNSIGNED NOT NULL,
+        created_by INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        restored_by INT NULL,
+        restored_at DATETIME NULL,
+        FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY(restored_by) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_system_backups_created(created_at)
+    ) ENGINE=InnoDB");
+}
+function get_system_setting(mysqli $conn, string $key, string $default=''): string {
+    static $cache=[];
+    if(array_key_exists($key,$cache))return $cache[$key];
+    ensure_system_settings_table($conn);
+    $query=$conn->prepare('SELECT setting_value FROM system_settings WHERE setting_key=?');
+    $query->bind_param('s',$key);
+    $query->execute();
+    $value=$query->get_result()->fetch_column();
+    $cache[$key]=$value===false?$default:(string)$value;
+    return $cache[$key];
+}
 function csrf_token(): string {
     if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(32));
     return $_SESSION['csrf'];
@@ -104,7 +149,25 @@ function stmt_bind(mysqli_stmt $stmt, string $types, array $params): void {
     call_user_func_array([$stmt,'bind_param'],$refs);
 }
 function current_user(): ?array { return $_SESSION['user'] ?? null; }
-function require_login(): void { if (!current_user()) redirect('login.php'); }
+function require_login(): void {
+    static $validated=false;
+    $user=current_user();
+    if(!$user)redirect('login.php');
+    if($validated)return;
+    global $conn;
+    $query=$conn->prepare("SELECT full_name,email,role,status FROM users WHERE id=? LIMIT 1");
+    $query->bind_param('i',$user['id']);
+    $query->execute();
+    $account=$query->get_result()->fetch_assoc();
+    if(!$account||($account['status']!==null&&$account['status']!=='active')||$account['role']!==$user['role']){
+        $_SESSION=[];
+        session_destroy();
+        redirect('login.php');
+    }
+    $_SESSION['user']['full_name']=$account['full_name'];
+    $_SESSION['user']['email']=$account['email'];
+    $validated=true;
+}
 function require_role(array $roles): void {
     require_login();
     if (!in_array(current_user()['role'], $roles, true)) {

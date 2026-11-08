@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__.'/includes/functions.php';
-if(current_user())redirect(role_home());
+if(current_user()){
+    require_login();
+    redirect(role_home());
+}
 $err='';
 if($_SERVER['REQUEST_METHOD']==='POST'){
     csrf_check();

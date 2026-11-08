@@ -22,7 +22,7 @@ If the earlier version of that migration was already applied and Maintenance was
 - Staff/Admin can print room QR labels from the room column in `inventory.php`.
 - Repair start/completion is attributed to the Maintenance account. Staff/Admin can see the latest repairer and full per-item history from the inventory list.
 - Maintenance users can update their display name and password from My Profile.
-- Staff can submit equipment borrowing requests from `requests.php`; Admin reviews them in `approval_requests.php` and can approve, reject, or record a return. Approved quantities are reserved until returned.
+- Staff can submit equipment borrowing requests from `requests.php`; Admin reviews and approves or rejects them in `approval_requests.php`. Staff records QR-verified equipment releases and returns in the Staff transaction module. Staff availability and in-use totals change only when a release or return is recorded.
 - Admin and Staff can review filtered inventory and borrowing reports from `reports.php`, print them, or export the filtered tables as CSV.
 - Add equipment from `inventory.php`. Asset tags are generated as `CCST-INV-YYYY-NNNN` and remain fixed after creation.
 - Record equipment such as PCs, TVs, printers, projectors, furniture, and network devices. Include quantity, room, condition, status, custodian, acquisition date, and cost as available.
@@ -33,6 +33,10 @@ QR generation and camera scanning use CDN-hosted JavaScript libraries and requir
 
 The system keeps existing school records in the database during the conversion, but they are no longer part of the inventory navigation. Back up the database before applying migrations. Configure HTTPS and protect database credentials before any public deployment.
 
-For an existing inventory database, apply `migrations/add_maintenance_history.sql` to create the repair attribution table. The app also creates it automatically when an inventory or scan page is first opened.
+For an existing inventory database, apply `migrations/add_maintenance_history.sql` to create or upgrade the repair attribution table. The app also creates or upgrades it automatically when an inventory or scan page is first opened. Maintenance accounts record the repair description and any replaced parts when completing a job; Admin can review all entries in Maintenance Records.
 
 For existing databases, apply `migrations/add_equipment_requests.sql` to create the borrowing approval table. The app can also bootstrap it automatically when an Admin or Staff page is opened.
+
+For existing databases, apply `migrations/add_staff_equipment_transactions.sql` after the equipment request table exists. Staff pages also create the transaction table automatically when first opened.
+
+For existing databases, apply `migrations/add_system_settings.sql` and `migrations/add_system_backups.sql`. The Admin pages create these tables automatically when opened if they do not exist. Database backups are stored outside the public web root in a compressed PHP-generated snapshot; no shell backup command is required.

@@ -1,17 +1,20 @@
 <?php
-require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/staff/functions.php';
 require_login();
 if (role_home() !== 'index.php') redirect(role_home());
-ensure_equipment_requests_table($conn);
+ensure_staff_equipment_transactions_table($conn);
+$borrowedSubquery = staff_borrowed_units_subquery();
 
 $summary = $conn->query("SELECT
-	COUNT(CASE WHEN i.status<>'Disposed' THEN 1 END) AS total_assets,
-	COALESCE(SUM(CASE WHEN i.status='Available' AND i.condition_status NOT IN ('Needs Repair','Damaged') THEN GREATEST(i.quantity-COALESCE(b.borrowed,0),0) ELSE 0 END),0) AS available_units,
-	COALESCE(SUM(CASE WHEN i.status='In Use' AND i.condition_status NOT IN ('Needs Repair','Damaged') THEN i.quantity WHEN i.status='Available' AND i.condition_status NOT IN ('Needs Repair','Damaged') THEN COALESCE(b.borrowed,0) ELSE 0 END),0) AS in_use_units,
-	COUNT(CASE WHEN i.status<>'Disposed' AND (i.status='Under Repair' OR i.condition_status IN ('Needs Repair','Damaged')) THEN 1 END) AS maintenance_assets
-	FROM inventory_items i LEFT JOIN (SELECT inventory_item_id,SUM(quantity) AS borrowed FROM equipment_requests WHERE status='approved' GROUP BY inventory_item_id) b ON b.inventory_item_id=i.id")->fetch_assoc();
-$stateRows = $conn->query("SELECT 'Available' AS asset_state,COALESCE(SUM(GREATEST(i.quantity-COALESCE(b.borrowed,0),0)),0) AS units FROM inventory_items i LEFT JOIN (SELECT inventory_item_id,SUM(quantity) AS borrowed FROM equipment_requests WHERE status='approved' GROUP BY inventory_item_id) b ON b.inventory_item_id=i.id WHERE i.status='Available' AND i.condition_status NOT IN ('Needs Repair','Damaged') UNION ALL SELECT 'In Use',COALESCE(SUM(quantity),0) FROM inventory_items WHERE status='In Use' AND condition_status NOT IN ('Needs Repair','Damaged') UNION ALL SELECT 'In Use',COALESCE(SUM(b.borrowed),0) FROM inventory_items i JOIN (SELECT inventory_item_id,SUM(quantity) AS borrowed FROM equipment_requests WHERE status='approved' GROUP BY inventory_item_id) b ON b.inventory_item_id=i.id WHERE i.status='Available' AND i.condition_status NOT IN ('Needs Repair','Damaged') UNION ALL SELECT 'Under Maintenance',COALESCE(SUM(quantity),0) FROM inventory_items WHERE status<>'Disposed' AND (status='Under Repair' OR condition_status IN ('Needs Repair','Damaged')) UNION ALL SELECT 'Disposed',COALESCE(SUM(quantity),0) FROM inventory_items WHERE status='Disposed'");
-$stateCounts = ['Available' => 0, 'In Use' => 0, 'Under Maintenance' => 0, 'Disposed' => 0];
+    COALESCE(SUM(i.quantity),0) AS total_equipment_units,
+    COALESCE(SUM(CASE WHEN i.status='Available' AND i.condition_status NOT IN ('Needs Repair','Damaged') THEN GREATEST(i.quantity-GREATEST(COALESCE(b.borrowed,0),0),0) ELSE 0 END),0) AS available_units,
+    COALESCE(SUM(GREATEST(COALESCE(b.borrowed,0),0)),0) AS in_use_units,
+    COALESCE(SUM(CASE WHEN i.status<>'Disposed' AND i.condition_status='Damaged' THEN GREATEST(i.quantity-GREATEST(COALESCE(b.borrowed,0),0),0) ELSE 0 END),0) AS damaged_units,
+    COALESCE(SUM(CASE WHEN i.status<>'Disposed' AND i.condition_status<>'Damaged' AND (i.status='Under Repair' OR i.condition_status='Needs Repair') THEN GREATEST(i.quantity-GREATEST(COALESCE(b.borrowed,0),0),0) ELSE 0 END),0) AS maintenance_units
+    FROM inventory_items i LEFT JOIN $borrowedSubquery b ON b.inventory_item_id=i.id")->fetch_assoc();
+$pendingApprovalCount = (int)$conn->query("SELECT COUNT(*) FROM equipment_requests WHERE status='pending'")->fetch_row()[0];
+$stateRows = $conn->query("SELECT 'Available' AS asset_state,COALESCE(SUM(CASE WHEN i.status='Available' AND i.condition_status NOT IN ('Needs Repair','Damaged') THEN GREATEST(i.quantity-GREATEST(COALESCE(b.borrowed,0),0),0) ELSE 0 END),0) AS units FROM inventory_items i LEFT JOIN $borrowedSubquery b ON b.inventory_item_id=i.id UNION ALL SELECT 'In Use',COALESCE(SUM(GREATEST(COALESCE(b.borrowed,0),0)),0) FROM inventory_items i LEFT JOIN $borrowedSubquery b ON b.inventory_item_id=i.id WHERE COALESCE(b.borrowed,0)>0 UNION ALL SELECT 'Under Maintenance',COALESCE(SUM(CASE WHEN i.status<>'Disposed' AND i.condition_status<>'Damaged' AND (i.status='Under Repair' OR i.condition_status='Needs Repair') THEN GREATEST(i.quantity-GREATEST(COALESCE(b.borrowed,0),0),0) ELSE 0 END),0) FROM inventory_items i LEFT JOIN $borrowedSubquery b ON b.inventory_item_id=i.id UNION ALL SELECT 'Damaged',COALESCE(SUM(CASE WHEN i.status<>'Disposed' AND i.condition_status='Damaged' THEN GREATEST(i.quantity-GREATEST(COALESCE(b.borrowed,0),0),0) ELSE 0 END),0) FROM inventory_items i LEFT JOIN $borrowedSubquery b ON b.inventory_item_id=i.id UNION ALL SELECT 'Disposed',COALESCE(SUM(quantity),0) FROM inventory_items WHERE status='Disposed'");
+$stateCounts = ['Available' => 0, 'In Use' => 0, 'Under Maintenance' => 0, 'Damaged' => 0, 'Disposed' => 0];
 while ($state = $stateRows->fetch_assoc()) $stateCounts[$state['asset_state']] += (int)$state['units'];
 
 $monthStart = (new DateTimeImmutable('first day of this month'))->modify('-5 months');
@@ -45,12 +48,12 @@ include __DIR__ . '/includes/header.php';
             <p class="dashboard-eyebrow">CCST FACILITIES</p>
             <h1>Inventory Overview</h1>
             <p class="dashboard-subtitle">A current view of school equipment, availability, and repair work.</p>
-        </div><a class="admin-alert-link" href="<?= e(BASE_URL) ?>/inventory.php" aria-label="View <?= e($summary['maintenance_assets']) ?> assets needing maintenance"><i class="bi bi-bell" aria-hidden="true"></i><?php if ((int)$summary['maintenance_assets'] > 0): ?><span><?= number_format((int)$summary['maintenance_assets']) ?></span><?php endif; ?></a>
+        </div><a class="admin-alert-link" href="<?= e(BASE_URL) ?>/inventory.php?status=Under%20Repair" aria-label="View <?= number_format((int)$summary['maintenance_units']) ?> units needing maintenance"><i class="bi bi-bell" aria-hidden="true"></i><?php if ((int)$summary['maintenance_units'] > 0): ?><span><?= number_format((int)$summary['maintenance_units']) ?></span><?php endif; ?></a>
     </header>
     <section class="admin-metric-grid" aria-label="Inventory summary">
         <article class="admin-metric metric-blue">
             <div class="admin-metric-icon"><i class="bi bi-box-seam-fill" aria-hidden="true"></i></div>
-            <div><strong><?= number_format((int)$summary['total_assets']) ?></strong><span>Total assets</span></div>
+            <div><strong><?= number_format((int)$summary['total_equipment_units']) ?></strong><span>Total equipment units</span></div>
         </article>
         <article class="admin-metric metric-green">
             <div class="admin-metric-icon"><i class="bi bi-check-circle-fill" aria-hidden="true"></i></div>
@@ -62,7 +65,15 @@ include __DIR__ . '/includes/header.php';
         </article>
         <article class="admin-metric metric-red">
             <div class="admin-metric-icon"><i class="bi bi-wrench-adjustable" aria-hidden="true"></i></div>
-            <div><strong><?= number_format((int)$summary['maintenance_assets']) ?></strong><span>Under maintenance</span></div>
+            <div><strong><?= number_format((int)$summary['maintenance_units']) ?></strong><span>Under maintenance</span></div>
+        </article>
+        <article class="admin-metric metric-red">
+            <div class="admin-metric-icon"><i class="bi bi-exclamation-octagon-fill" aria-hidden="true"></i></div>
+            <div><strong><?= number_format((int)$summary['damaged_units']) ?></strong><span>Damaged equipment</span></div>
+        </article>
+        <article class="admin-metric metric-amber">
+            <div class="admin-metric-icon"><i class="bi bi-clipboard-check" aria-hidden="true"></i></div>
+            <div><strong><?= number_format($pendingApprovalCount) ?></strong><span>Pending approval requests</span></div>
         </article>
     </section>
     <section class="admin-analysis-grid">
@@ -82,6 +93,7 @@ include __DIR__ . '/includes/header.php';
                         <li><span class="legend-swatch swatch-available"></span>Available <strong><?= number_format($stateCounts['Available']) ?></strong></li>
                         <li><span class="legend-swatch swatch-inuse"></span>In use <strong><?= number_format($stateCounts['In Use']) ?></strong></li>
                         <li><span class="legend-swatch swatch-repair"></span>Maintenance <strong><?= number_format($stateCounts['Under Maintenance']) ?></strong></li>
+                        <li><span class="legend-swatch swatch-damaged"></span>Damaged <strong><?= number_format($stateCounts['Damaged']) ?></strong></li>
                         <li><span class="legend-swatch swatch-disposed"></span>Disposed <strong><?= number_format($stateCounts['Disposed']) ?></strong></li>
                     </ul>
                 </div>
@@ -190,10 +202,10 @@ include __DIR__ . '/includes/header.php';
     new Chart(document.getElementById('inventory-state-chart'), {
         type: 'doughnut',
         data: {
-            labels: ['Available', 'In use', 'Under maintenance', 'Disposed'],
+            labels: ['Available', 'In use', 'Under maintenance', 'Damaged', 'Disposed'],
             datasets: [{
                 data: <?= json_encode(array_values($stateCounts)) ?>,
-                backgroundColor: ['#22a36a', '#1674d1', '#f0a11a', '#d84c52'],
+                backgroundColor: ['#22a36a', '#1674d1', '#f0a11a', '#d84c52', '#7b879a'],
                 borderWidth: 0,
                 hoverOffset: 5
             }]

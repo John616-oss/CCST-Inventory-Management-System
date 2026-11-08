@@ -80,3 +80,24 @@ CREATE TABLE equipment_requests(
  INDEX idx_equipment_request_status(status,created_at),INDEX idx_equipment_request_item(inventory_item_id,status),
  INDEX idx_equipment_request_user(requester_id,created_at)
 ) ENGINE=InnoDB;
+CREATE TABLE equipment_transactions(
+ id BIGINT AUTO_INCREMENT PRIMARY KEY,request_id BIGINT NULL,inventory_item_id INT NOT NULL,user_id INT NOT NULL,
+ action ENUM('released','returned','damaged_reported') NOT NULL,quantity INT UNSIGNED NOT NULL DEFAULT 1,
+ condition_status ENUM('New','Good','Needs Repair','Damaged') NULL,details TEXT NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY uq_equipment_transaction_request_action(request_id,action),
+ INDEX idx_equipment_transaction_item_action(inventory_item_id,action,created_at),INDEX idx_equipment_transaction_user(user_id,created_at),
+ CONSTRAINT fk_staff_equipment_transaction_request FOREIGN KEY(request_id) REFERENCES equipment_requests(id) ON DELETE RESTRICT,
+ FOREIGN KEY(inventory_item_id) REFERENCES inventory_items(id) ON DELETE RESTRICT,
+ FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+CREATE TABLE system_settings(
+ setting_key VARCHAR(64) PRIMARY KEY,setting_value TEXT NOT NULL,updated_by INT NULL,
+ updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+ FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+CREATE TABLE system_backups(
+ id BIGINT AUTO_INCREMENT PRIMARY KEY,file_name VARCHAR(255) NOT NULL UNIQUE,file_size BIGINT UNSIGNED NOT NULL,
+ created_by INT NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,restored_by INT NULL,restored_at DATETIME NULL,
+ FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL,FOREIGN KEY(restored_by) REFERENCES users(id) ON DELETE SET NULL,
+ INDEX idx_system_backups_created(created_at)
+) ENGINE=InnoDB;
