@@ -1,17 +1,26 @@
 <?php
 require_once __DIR__ . '/includes/functions.php';
-require_role(['admin']);
+require_role(['admin', 'maintenance']);
 ensure_inventory_table($conn);
 
 $search = trim($_GET['q'] ?? '');
+$userRole = current_user()['role'];
 $dateFilter = $_GET['date'] ?? 'all';
 $dateOptions = ['all', 'today', '7days', '30days'];
 if (!in_array($dateFilter, $dateOptions, true)) {
     $dateFilter = 'all';
 }
+$dateFrom = trim($_GET['date_from'] ?? '');
+$dateTo = trim($_GET['date_to'] ?? '');
+$validDate = static function (string $value): string {
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+    return $date && $date->format('Y-m-d') === $value ? $value : '';
+};
+$dateFrom = $validDate($dateFrom);
+$dateTo = $validDate($dateTo);
 $equipmentId = max(0, (int) ($_GET['equipment_id'] ?? 0));
 $statusFilter = $_GET['status'] ?? '';
-if (!in_array($statusFilter, ['started', 'completed'], true)) {
+if (!in_array($statusFilter, ['Pending', 'In Progress', 'Completed', 'Cannot Be Repaired'], true)) {
     $statusFilter = '';
 }
 
@@ -19,10 +28,10 @@ $conditions = [];
 $queryTypes = '';
 $queryValues = [];
 if ($search !== '') {
-    $conditions[] = '(u.full_name LIKE ? OR u.email LIKE ? OR i.asset_tag LIKE ? OR i.item_name LIKE ? OR h.work_description LIKE ? OR h.parts_replaced LIKE ?)';
+    $conditions[] = '(u.full_name LIKE ? OR u.email LIKE ? OR i.asset_tag LIKE ? OR i.item_name LIKE ? OR h.work_description LIKE ? OR h.parts_replaced LIKE ? OR r.issue_description LIKE ?)';
     $searchPattern = '%' . $search . '%';
-    $queryTypes .= 'ssssss';
-    $queryValues = array_merge($queryValues, array_fill(0, 6, $searchPattern));
+    $queryTypes .= 'sssssss';
+    $queryValues = array_merge($queryValues, array_fill(0, 7, $searchPattern));
 }
 if ($equipmentId > 0) {
     $conditions[] = 'h.inventory_item_id = ?';
@@ -30,7 +39,7 @@ if ($equipmentId > 0) {
     $queryValues[] = $equipmentId;
 }
 if ($statusFilter !== '') {
-    $conditions[] = 'h.action = ?';
+    $conditions[] = "COALESCE(r.status, CASE h.action WHEN 'reported' THEN 'Pending' WHEN 'started' THEN 'In Progress' WHEN 'completed' THEN 'Completed' ELSE 'Cannot Be Repaired' END) = ?";
     $queryTypes .= 's';
     $queryValues[] = $statusFilter;
 }
@@ -40,6 +49,16 @@ if ($dateFilter === 'today') {
     $conditions[] = 'h.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
 } elseif ($dateFilter === '30days') {
     $conditions[] = 'h.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)';
+}
+if ($dateFrom !== '') {
+    $conditions[] = 'h.created_at >= ?';
+    $queryTypes .= 's';
+    $queryValues[] = $dateFrom;
+}
+if ($dateTo !== '') {
+    $conditions[] = 'h.created_at < DATE_ADD(?, INTERVAL 1 DAY)';
+    $queryTypes .= 's';
+    $queryValues[] = $dateTo;
 }
 $whereSql = $conditions ? ' WHERE ' . implode(' AND ', $conditions) : '';
 
@@ -67,7 +86,8 @@ $countQuery = $conn->prepare(
     'SELECT COUNT(*)
      FROM maintenance_history h
      JOIN users u ON u.id = h.user_id
-     JOIN inventory_items i ON i.id = h.inventory_item_id' . $whereSql
+    JOIN inventory_items i ON i.id = h.inventory_item_id
+    LEFT JOIN maintenance_requests r ON r.id = h.request_id' . $whereSql
 );
 if ($queryValues) {
     stmt_bind($countQuery, $queryTypes, $queryValues);
@@ -81,11 +101,13 @@ $page = min(max(1, (int) ($_GET['page'] ?? 1)), $totalPages);
 $offset = ($page - 1) * $pageSize;
 
 $historyQuery = $conn->prepare(
-    'SELECT h.inventory_item_id, h.action, h.work_description, h.parts_replaced, h.created_at,
+        'SELECT h.inventory_item_id, h.request_id, h.action, h.work_description, h.parts_replaced, h.created_at,
+            r.issue_description, r.status AS request_status,
             u.full_name, u.email, i.asset_tag, i.item_name, i.location
      FROM maintenance_history h
      JOIN users u ON u.id = h.user_id
-     JOIN inventory_items i ON i.id = h.inventory_item_id' . $whereSql . '
+         JOIN inventory_items i ON i.id = h.inventory_item_id
+         LEFT JOIN maintenance_requests r ON r.id = h.request_id' . $whereSql . '
      ORDER BY h.id DESC
      LIMIT ? OFFSET ?'
 );
@@ -96,10 +118,12 @@ $history = $historyQuery->get_result();
 $equipmentOptions = $conn->query('SELECT id, asset_tag, item_name FROM inventory_items ORDER BY item_name, asset_tag');
 $firstRecord = $totalRecords > 0 ? $offset + 1 : 0;
 $lastRecord = min($offset + $pageSize, $totalRecords);
-$paginationUrl = static function (int $targetPage) use ($search, $dateFilter, $equipmentId, $statusFilter): string {
+$paginationUrl = static function (int $targetPage) use ($search, $dateFilter, $dateFrom, $dateTo, $equipmentId, $statusFilter): string {
     $query = [
         'q' => $search,
         'date' => $dateFilter,
+        'date_from' => $dateFrom,
+        'date_to' => $dateTo,
         'equipment_id' => $equipmentId,
         'status' => $statusFilter,
         'page' => $targetPage,
@@ -122,6 +146,7 @@ include __DIR__ . '/includes/header.php';
             <i class="bi bi-gear-wide-connected"></i>
         </div>
     </header>
+    <div class="maintenance-records-print no-print"><button class="btn btn-outline-primary btn-sm" type="button" onclick="window.print()"><i class="bi bi-printer" aria-hidden="true"></i> Print records</button></div>
 
     <section class="maintenance-records-metrics" aria-label="Maintenance summary">
         <article class="maintenance-records-metric metric-total">
@@ -144,10 +169,10 @@ include __DIR__ . '/includes/header.php';
             <span class="maintenance-records-metric-icon"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i></span>
             <div><span>Damaged equipment</span><strong><?= number_format((int) $repairStats['damaged_equipment']) ?></strong><small>Excluded from borrowing</small></div>
         </article>
-        <article class="maintenance-records-metric metric-accounts">
+        <?php if ($userRole === 'admin'): ?><article class="maintenance-records-metric metric-accounts">
             <span class="maintenance-records-metric-icon"><i class="bi bi-people" aria-hidden="true"></i></span>
             <div><span>Maintenance accounts</span><strong><?= number_format((int) $repairStats['maintenance_accounts']) ?></strong><small>Active accounts</small></div>
-        </article>
+        </article><?php endif; ?>
     </section>
 
     <section class="panel maintenance-records-table-panel">
@@ -198,6 +223,8 @@ include __DIR__ . '/includes/header.php';
                 <option value="30days" <?= $dateFilter === '30days' ? 'selected' : '' ?>>Last 30 days</option>
             </select>
         </label>
+        <label class="maintenance-filter-select"><span class="visually-hidden">Start date</span><input class="form-control" type="date" name="date_from" value="<?= e($dateFrom) ?>" aria-label="Start date"></label>
+        <label class="maintenance-filter-select"><span class="visually-hidden">End date</span><input class="form-control" type="date" name="date_to" value="<?= e($dateTo) ?>" aria-label="End date"></label>
         <label class="maintenance-filter-select maintenance-filter-equipment">
             <i class="bi bi-wrench-adjustable" aria-hidden="true"></i>
             <span class="visually-hidden">Filter by equipment</span>
@@ -215,8 +242,10 @@ include __DIR__ . '/includes/header.php';
             <span class="visually-hidden">Filter by status</span>
             <select name="status" aria-label="Filter by status">
                 <option value="">All statuses</option>
-                <option value="started" <?= $statusFilter === 'started' ? 'selected' : '' ?>>In progress</option>
-                <option value="completed" <?= $statusFilter === 'completed' ? 'selected' : '' ?>>Completed</option>
+                <option value="Pending" <?= $statusFilter === 'Pending' ? 'selected' : '' ?>>Pending</option>
+                <option value="In Progress" <?= $statusFilter === 'In Progress' ? 'selected' : '' ?>>In progress</option>
+                <option value="Completed" <?= $statusFilter === 'Completed' ? 'selected' : '' ?>>Completed</option>
+                <option value="Cannot Be Repaired" <?= $statusFilter === 'Cannot Be Repaired' ? 'selected' : '' ?>>Cannot be repaired</option>
             </select>
         </label>
         <button class="maintenance-filter-submit" type="submit"><i class="bi bi-search" aria-hidden="true"></i> Search</button>
@@ -241,10 +270,11 @@ include __DIR__ . '/includes/header.php';
                     <tr>
                         <th>#</th>
                         <th>Date and time</th>
+                        <th>Maintenance staff</th>
                         <th>Equipment</th>
-                        <th>Maintenance account</th>
-                        <th>Status</th>
-                        <th>Repair done</th>
+                        <th>Reported issue</th>
+                        <th>Action performed</th>
+                        <th>Repair status</th>
                         <th>Parts replaced</th>
                         <th><span class="visually-hidden">Details</span></th>
                     </tr>
@@ -258,20 +288,18 @@ include __DIR__ . '/includes/header.php';
                                 <td><?= $recordNumber ?></td>
                                 <td><?= e(date('M j, Y g:i A', strtotime($entry['created_at']))) ?></td>
                                 <td>
-                                    <strong><?= e($entry['item_name']) ?></strong>
-                                    <small><?= e($entry['asset_tag']) ?></small>
-                                </td>
-                                <td>
                                     <strong><?= e($entry['full_name']) ?></strong>
                                     <small><?= e($entry['email']) ?></small>
                                 </td>
+                                <td><strong><?= e($entry['item_name']) ?></strong><small><?= e($entry['asset_tag']) ?></small></td>
+                                <td class="text-break"><?= e($entry['issue_description'] ?: 'Legacy maintenance record') ?></td>
+                                <td class="text-break"><?= e($entry['action'] === 'reported' ? 'Damage reported' : ($entry['work_description'] ?: '—')) ?></td>
                                 <td>
-                                    <span class="maintenance-record-status <?= $entry['action'] === 'completed' ? 'status-completed' : 'status-in-progress' ?>">
-                                        <i class="bi <?= $entry['action'] === 'completed' ? 'bi-check-circle-fill' : 'bi-clock-fill' ?>" aria-hidden="true"></i>
-                                        <?= $entry['action'] === 'completed' ? 'Completed' : 'In progress' ?>
+                                    <?php $recordStatus = $entry['request_status'] ?? match ($entry['action']) {'completed' => 'Completed', 'started' => 'In Progress', 'reported' => 'Pending', default => 'Cannot Be Repaired'}; ?>
+                                    <span class="maintenance-record-status <?= $recordStatus === 'Completed' ? 'status-completed' : ($recordStatus === 'Pending' ? 'status-pending' : ($recordStatus === 'Cannot Be Repaired' ? 'status-danger' : 'status-in-progress')) ?>">
+                                        <?= e($recordStatus) ?>
                                     </span>
                                 </td>
-                                <td class="text-break"><?= e($entry['work_description'] ?: '—') ?></td>
                                 <td class="text-break"><?= e($entry['parts_replaced'] ?: '—') ?></td>
                                 <td>
                                     <a class="maintenance-record-view" href="maintenance_history.php?id=<?= (int) $entry['inventory_item_id'] ?>" aria-label="View maintenance history for <?= e($entry['asset_tag']) ?>">
@@ -282,7 +310,7 @@ include __DIR__ . '/includes/header.php';
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" class="maintenance-records-empty">
+                            <td colspan="9" class="maintenance-records-empty">
                                 <i class="bi bi-clipboard2-x" aria-hidden="true"></i>
                                 <strong>No maintenance records found</strong>
                                 <span>Try changing or clearing the filters.</span>

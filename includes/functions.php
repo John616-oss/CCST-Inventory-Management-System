@@ -230,9 +230,3 @@ function send_smtp_mail(string $to, string $subject, string $html): bool {
     $result=$cmd($body); $cmd('QUIT'); fclose($fp);
     return strpos($result,'250')!==false;
 }
-function make_student_code(mysqli $conn): string {
-    $year=date('Y'); $prefix='CCST-'.$year.'-';
-    $stmt=$conn->prepare("SELECT COUNT(*)+1 n FROM students WHERE student_code LIKE CONCAT(?, '%')");
-    $stmt->bind_param('s',$prefix); $stmt->execute(); $n=(int)$stmt->get_result()->fetch_assoc()['n'];
-    return $prefix.str_pad((string)$n,4,'0',STR_PAD_LEFT);
-}

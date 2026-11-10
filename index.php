@@ -48,7 +48,7 @@ include __DIR__ . '/includes/header.php';
             <p class="dashboard-eyebrow">CCST FACILITIES</p>
             <h1>Inventory Overview</h1>
             <p class="dashboard-subtitle">A current view of school equipment, availability, and repair work.</p>
-        </div><a class="admin-alert-link" href="<?= e(BASE_URL) ?>/inventory.php?status=Under%20Repair" aria-label="View <?= number_format((int)$summary['maintenance_units']) ?> units needing maintenance"><i class="bi bi-bell" aria-hidden="true"></i><?php if ((int)$summary['maintenance_units'] > 0): ?><span><?= number_format((int)$summary['maintenance_units']) ?></span><?php endif; ?></a>
+        </div>
     </header>
     <section class="admin-metric-grid" aria-label="Inventory summary">
         <article class="admin-metric metric-blue">

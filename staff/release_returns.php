@@ -109,7 +109,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $outstandingQuery->execute();
                 $outstanding = max(0, (int) $outstandingQuery->get_result()->fetch_assoc()['borrowed']);
                 if ($outstanding === 0 && $item['status'] === 'In Use') {
-                    $updateItem = $conn->prepare("UPDATE inventory_items SET condition_status = 'Good', status = 'Available' WHERE id = ?");
+                    $openMaintenance = $conn->prepare("SELECT id FROM maintenance_requests WHERE inventory_item_id=? AND status IN ('Pending','In Progress','Cannot Be Repaired') LIMIT 1");
+                    $openMaintenance->bind_param('i', $item['id']);
+                    $openMaintenance->execute();
+                    if ($openMaintenance->get_result()->num_rows) {
+                        $updateItem = $conn->prepare("UPDATE inventory_items SET status = 'Under Repair' WHERE id = ?");
+                    } else {
+                        $updateItem = $conn->prepare("UPDATE inventory_items SET condition_status = 'Good', status = 'Available' WHERE id = ?");
+                    }
                     $updateItem->bind_param('i', $item['id']);
                     $updateItem->execute();
                 }

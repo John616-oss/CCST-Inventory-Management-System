@@ -8,7 +8,12 @@ $schoolLogoUrl=rtrim(BASE_URL,'/').'/'.ltrim(get_system_setting($conn,'school_lo
 $roleLabel=match($u['role']){'admin'=>'Administrator','maintenance'=>'Maintenance','staff'=>'Staff',default=>'Inventory User'};
 $initials=strtoupper(substr($u['full_name'],0,1).substr(strrchr(' '.$u['full_name'],' '),1,1));
 $dashboardShell=in_array($u['role'],['admin','staff'],true);
+$maintenanceShell=$u['role']==='maintenance';
 $isOverview=($u['role']==='admin'&&basename($_SERVER['PHP_SELF'])==='index.php')||($u['role']==='staff'&&basename($_SERVER['PHP_SELF'])==='dashboard.php'&&str_contains(str_replace('\\','/',$_SERVER['SCRIPT_NAME']??''),'/staff/'));
+$isMaintenanceDashboard=$maintenanceShell&&basename($_SERVER['PHP_SELF'])==='dashboard.php';
+$isMaintenanceRequests=$maintenanceShell&&basename($_SERVER['PHP_SELF'])==='requests.php';
+$isMaintenanceEquipment=$maintenanceShell&&basename($_SERVER['PHP_SELF'])==='equipment.php';
+$isMaintenanceReports=$maintenanceShell&&basename($_SERVER['PHP_SELF'])==='reports.php';
 $isInventory=$u['role']!=='maintenance'&&basename($_SERVER['PHP_SELF'])==='inventory.php'&&!isset($_GET['qr_generator'])&&!isset($_GET['qr'])&&!isset($_GET['room_qr']);
 $isQrGenerator=$u['role']==='admin'&&basename($_SERVER['PHP_SELF'])==='inventory.php'&&(isset($_GET['qr_generator'])||isset($_GET['qr'])||isset($_GET['room_qr']));
 $isAdminRequests=$u['role']==='admin'&&basename($_SERVER['PHP_SELF'])==='approval_requests.php';
@@ -26,6 +31,8 @@ $isStaffProfile=$u['role']==='staff'&&basename($_SERVER['PHP_SELF'])==='profile.
 $isStaffScanner=$u['role']==='staff'&&basename($_SERVER['PHP_SELF'])==='scan.php';
 $isReports=in_array($u['role'],['admin','staff'],true)&&basename($_SERVER['PHP_SELF'])==='reports.php';
 $pendingRequestCount=0;
+$maintenanceNotificationCount=0;
+if($maintenanceShell){$maintenanceNotificationCount=(int)$conn->query("SELECT COUNT(*) FROM maintenance_requests WHERE assigned_to=".(int)$u['id']." AND status='Pending'")->fetch_row()[0];}
 if(in_array($u['role'],['admin','staff'],true)){
 	ensure_equipment_requests_table($conn);
 	if($u['role']==='admin')$pendingRequestCount=(int)$conn->query("SELECT COUNT(*) FROM equipment_requests WHERE status='pending'")->fetch_row()[0];
@@ -33,7 +40,13 @@ if(in_array($u['role'],['admin','staff'],true)){
 }
 $adminNotificationCounts=['overdue'=>0,'low_stock'=>0,'damaged'=>0,'maintenance'=>0,'repair_completed'=>0,'account'=>0];
 $adminNotificationCount=$u['role']==='admin'?$pendingRequestCount:0;
+$adminNotificationsCleared=false;
 if($u['role']==='admin'){
+	$conn->query("CREATE TABLE IF NOT EXISTS notification_dismissals (user_id INT NOT NULL,notification_key VARCHAR(190) NOT NULL,dismissed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(user_id,notification_key),INDEX idx_notification_dismissals_date(user_id,dismissed_at),CONSTRAINT fk_notification_dismissals_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE) ENGINE=InnoDB");
+	$clearMarkerQuery=$conn->prepare("SELECT dismissed_at FROM notification_dismissals WHERE user_id=? AND notification_key='__all__' LIMIT 1");
+	$clearMarkerQuery->bind_param('i',$u['id']);
+	$clearMarkerQuery->execute();
+	$adminNotificationsCleared=$clearMarkerQuery->get_result()->fetch_column()!==false;
 	require_once __DIR__.'/../staff/functions.php';
 	ensure_staff_equipment_transactions_table($conn);
 	$overdueQuery=$conn->query("SELECT COUNT(*) FROM equipment_transactions released JOIN equipment_requests r ON r.id=released.request_id WHERE released.action='released' AND r.expected_return_date<CURDATE() AND r.status IN ('approved','returned') AND NOT EXISTS(SELECT 1 FROM equipment_transactions returned WHERE returned.request_id=r.id AND returned.action='returned')");
@@ -51,30 +64,28 @@ if($u['role']==='admin'){
 	$adminNotificationCounts['account']=(int)$conn->query("SELECT COUNT(*) FROM activity_logs WHERE action IN ('CREATE USER','UPDATE USER','RESET USER PASSWORD','UPDATE ADMIN PROFILE','CHANGE ADMIN PASSWORD','LOGIN','LOGOUT') AND created_at>=DATE_SUB(NOW(),INTERVAL 7 DAY)")->fetch_row()[0];
 	$adminNotificationCount+=$adminNotificationCounts['overdue']+$adminNotificationCounts['low_stock']+$adminNotificationCounts['damaged']+$adminNotificationCounts['maintenance']+$adminNotificationCounts['repair_completed']+$adminNotificationCounts['account'];
 }
+if($adminNotificationsCleared)$adminNotificationCount=0;
 ?>
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?=e($systemName)?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 <link href="<?=e(BASE_URL)?>/assets/style.css?v=readable-2" rel="stylesheet">
-<link href="<?=e(BASE_URL)?>/assets/system.css?v=admin-enhanced-1" rel="stylesheet">
-<?php if(basename($_SERVER['PHP_SELF'])==='my_id.php'): ?><link href="<?=e(BASE_URL)?>/assets/id-card.css" rel="stylesheet"><?php endif; ?></head><body class="<?=$dashboardShell?'admin-shell '.($u['role']==='staff'?'staff-shell':''):''?>">
+<link href="<?=e(BASE_URL)?>/assets/system.css?v=notifications-clear-1" rel="stylesheet">
+<?php if(basename($_SERVER['PHP_SELF'])==='my_id.php'): ?><link href="<?=e(BASE_URL)?>/assets/id-card.css" rel="stylesheet"><?php endif; ?></head><body class="<?=$dashboardShell?'admin-shell '.($u['role']==='staff'?'staff-shell':''):($maintenanceShell?'maintenance-shell':'')?>">
 <nav class="navbar topbar px-3">
-<?php if($dashboardShell): ?>
-	<div class="admin-topbar-copy"><strong>Welcome, <?=e($u['full_name'])?>!</strong><span><?=e($schoolName)?> · <?=e($systemName)?> · <?=e($roleLabel)?></span></div>
-	<div class="admin-topbar-actions">
-		<?php if($u['role']==='admin'): ?><details class="admin-notification-dropdown"><summary aria-label="Open notifications"><i class="bi bi-bell" aria-hidden="true"></i><?php if($adminNotificationCount>0): ?><span><?=number_format($adminNotificationCount)?></span><?php endif; ?></summary><div class="admin-notification-menu"><strong>System alerts</strong><a href="<?=e(BASE_URL)?>/notifications.php?type=pending">Pending requests <b><?=number_format($pendingRequestCount)?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=overdue">Overdue items <b><?=number_format($adminNotificationCounts['overdue'])?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=low_stock">Low stock <b><?=number_format($adminNotificationCounts['low_stock'])?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=damaged">Damaged <b><?=number_format($adminNotificationCounts['damaged'])?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=maintenance">Under maintenance <b><?=number_format($adminNotificationCounts['maintenance'])?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=repair_completed">Completed repairs <b><?=number_format($adminNotificationCounts['repair_completed'])?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=account">Account activity <b><?=number_format($adminNotificationCounts['account'])?></b></a><a class="admin-notification-view-all" href="<?=e(BASE_URL)?>/notifications.php">View all notifications <i class="bi bi-arrow-right" aria-hidden="true"></i></a></div></details><?php endif; ?>
-		<span class="admin-topbar-date"><i class="bi bi-calendar3" aria-hidden="true"></i><?=e(date('F j, Y'))?></span><span class="admin-topbar-role"><i class="bi bi-person-gear" aria-hidden="true"></i><?=e($roleLabel)?></span>
-	</div>
+<?php if($dashboardShell||$maintenanceShell): ?>
+	<button class="app-nav-toggle" type="button" data-app-nav-toggle aria-controls="app-navigation" aria-expanded="false" aria-label="Open navigation"><i class="bi bi-list" aria-hidden="true"></i></button>
+<?php endif; ?>
+	<a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="<?=e(BASE_URL)?>/<?=e(role_home())?>"><img class="brand-logo" src="<?=e($schoolLogoUrl)?>" alt="CCST logo" width="32" height="32" style="width:32px;height:32px;max-width:none"><strong>CCST</strong> <span class="brand-system-name">Inventory Management System</span></a>
+<?php if($dashboardShell||$maintenanceShell): ?>
+	<div class="app-topbar-actions"><?php if($u['role']==='admin'): ?><details class="admin-notification-dropdown"><summary aria-label="Open notifications"><i class="bi bi-bell" aria-hidden="true"></i><?php if($adminNotificationCount>0): ?><span><?=number_format($adminNotificationCount)?></span><?php endif; ?></summary><div class="admin-notification-menu"><strong>System alerts</strong><a href="<?=e(BASE_URL)?>/notifications.php?type=pending">Pending requests <b><?=number_format($pendingRequestCount)?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=overdue">Overdue items <b><?=number_format($adminNotificationCounts['overdue'])?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=low_stock">Low stock <b><?=number_format($adminNotificationCounts['low_stock'])?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=damaged">Damaged <b><?=number_format($adminNotificationCounts['damaged'])?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=maintenance">Under maintenance <b><?=number_format($adminNotificationCounts['maintenance'])?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=repair_completed">Completed repairs <b><?=number_format($adminNotificationCounts['repair_completed'])?></b></a><a href="<?=e(BASE_URL)?>/notifications.php?type=account">Account activity <b><?=number_format($adminNotificationCounts['account'])?></b></a><a class="admin-notification-view-all" href="<?=e(BASE_URL)?>/notifications.php">View all notifications <i class="bi bi-arrow-right" aria-hidden="true"></i></a></div></details><?php endif; ?><span class="app-topbar-role"><?=e($roleLabel)?></span></div>
 <?php else: ?>
-	<a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="<?=e(BASE_URL)?>/<?=e(role_home())?>"><img class="brand-logo" src="<?=e($schoolLogoUrl)?>" alt="<?=e($schoolName)?> logo" width="32" height="32" style="width:32px;height:32px;max-width:none"><?=e($schoolName)?> <span class="brand-system-name"><?=e($systemName)?></span></a><div class="text-white small"><?=e($roleLabel)?> <a class="btn btn-sm btn-light ms-2" href="<?=e(BASE_URL)?>/logout.php">Logout</a></div>
+	<div class="text-white small"><?=e($roleLabel)?> <a class="btn btn-sm btn-light ms-2" href="<?=e(BASE_URL)?>/logout.php">Logout</a></div>
 <?php endif; ?>
 </nav>
-<div class="app"><aside class="sidebar">
-<?php if($dashboardShell): ?>
-<a class="admin-sidebar-brand" href="<?=e(BASE_URL)?>/index.php"><img src="<?=e($schoolLogoUrl)?>" alt="CCST logo"><span><strong>CCST</strong><small>Inventory<br>Management System</small></span></a>
-<?php endif; ?>
+<div class="app"><?php if($dashboardShell||$maintenanceShell): ?><button class="app-nav-backdrop" type="button" data-app-nav-backdrop aria-label="Close navigation" hidden></button><?php endif; ?><aside class="sidebar"<?=($dashboardShell||$maintenanceShell)?' id="app-navigation"':''?>>
 <?php if($u['role']==='staff'): ?><div class="staff-sidebar-section-label">MAIN MENU</div><?php elseif($u['role']==='admin'): ?><div class="admin-sidebar-section-label">MAIN MENU</div><?php endif; ?>
-<a class="<?=$isOverview?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/<?=e(role_home())?>"><i class="bi bi-grid-1x2-fill nav-icon" aria-hidden="true"></i>Dashboard</a>
+<?php if(!$maintenanceShell): ?><a class="<?=$isOverview?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/<?=e(role_home())?>"><i class="bi bi-grid-1x2-fill nav-icon" aria-hidden="true"></i>Dashboard</a><?php endif; ?>
 <?php if($u['role']==='admin'): ?>
 <a class="<?=$isAdminUsers?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/user_management.php"><i class="bi bi-people nav-icon" aria-hidden="true"></i>User Management</a>
 <a class="<?=$isAdminRoles?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/role_permissions.php"><i class="bi bi-shield-lock nav-icon" aria-hidden="true"></i>Role &amp; Permissions</a>
@@ -106,10 +117,21 @@ if($u['role']==='admin'){
 <a class="<?=$isStaffProfile?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/staff/profile.php"><i class="bi bi-person-circle nav-icon" aria-hidden="true"></i>Profile</a>
 <a href="<?=e(BASE_URL)?>/logout.php"><i class="bi bi-box-arrow-right nav-icon" aria-hidden="true"></i>Logout</a>
 <?php elseif($u['role']==='maintenance'): ?>
-<a href="<?=e(BASE_URL)?>/scan.php"><i class="bi bi-qr-code-scan nav-icon" aria-hidden="true"></i>QR Scanner</a>
-<a href="<?=e(BASE_URL)?>/maintenance/profile.php"><i class="bi bi-person-circle nav-icon" aria-hidden="true"></i>My Profile</a>
+<div class="maintenance-sidebar-section-label">MAIN MENU</div>
+<a class="<?=$isMaintenanceDashboard?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/maintenance/dashboard.php"><i class="bi bi-grid-1x2-fill nav-icon" aria-hidden="true"></i>Dashboard</a>
+<a class="<?=basename($_SERVER['PHP_SELF'])==='maintenance_records.php'?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/maintenance_records.php"><i class="bi bi-journal-check nav-icon" aria-hidden="true"></i>Maintenance Records</a>
+<a class="<?=$isMaintenanceRequests?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/maintenance/requests.php"><i class="bi bi-clipboard2-pulse nav-icon" aria-hidden="true"></i>Repair Requests<?php if($maintenanceNotificationCount>0): ?><span class="nav-count"><?=number_format($maintenanceNotificationCount)?></span><?php endif; ?></a>
+<a class="<?=$isMaintenanceEquipment?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/maintenance/equipment.php"><i class="bi bi-box-seam nav-icon" aria-hidden="true"></i>Equipment Status</a>
+<a class="<?=basename($_SERVER['PHP_SELF'])==='scan.php'?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/scan.php"><i class="bi bi-qr-code-scan nav-icon" aria-hidden="true"></i>QR Scanner</a>
+<div class="maintenance-sidebar-section-label">REPORTS</div>
+<a class="<?=$isMaintenanceReports?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/maintenance/reports.php"><i class="bi bi-bar-chart-line nav-icon" aria-hidden="true"></i>Maintenance Reports</a>
+<a href="<?=e(BASE_URL)?>/maintenance_records.php"><i class="bi bi-clock-history nav-icon" aria-hidden="true"></i>Repair History</a>
+<div class="maintenance-sidebar-section-label">ACCOUNT</div>
+<a class="<?=basename($_SERVER['PHP_SELF'])==='profile.php'&&str_contains(str_replace('\\','/',$_SERVER['SCRIPT_NAME']??''),'/maintenance/')?'admin-nav-active':''?>" href="<?=e(BASE_URL)?>/maintenance/profile.php"><i class="bi bi-person-circle nav-icon" aria-hidden="true"></i>Profile</a>
+<a href="<?=e(BASE_URL)?>/maintenance/requests.php?status=Pending"><i class="bi bi-bell nav-icon" aria-hidden="true"></i>Notifications<?php if($maintenanceNotificationCount>0): ?><span class="nav-count"><?=number_format($maintenanceNotificationCount)?></span><?php endif; ?></a>
+<a href="<?=e(BASE_URL)?>/logout.php"><i class="bi bi-box-arrow-right nav-icon" aria-hidden="true"></i>Logout</a>
 <?php endif; ?>
 <?php if($dashboardShell): ?>
-<div class="admin-sidebar-account"><span class="admin-user-avatar"><?=e($initials)?></span><span class="admin-user-copy"><strong><?=e($u['full_name'])?></strong><small><?=e($roleLabel)?></small></span><a class="admin-logout" href="<?=e(BASE_URL)?>/logout.php" aria-label="Logout" title="Logout"><i class="bi bi-box-arrow-right" aria-hidden="true"></i></a></div>
+<div class="admin-sidebar-account"><span class="admin-user-avatar"><?=e($initials)?></span><span class="admin-user-copy"><strong><?=e($u['full_name'])?></strong><small><?=e($roleLabel)?></small></span></div>
 <?php endif; ?>
 </aside><main class="content"><?php show_flash(); ?>
