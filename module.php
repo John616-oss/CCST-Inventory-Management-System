@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__.'/includes/functions.php';require_role(['registrar']);
+require_once __DIR__.'/includes/functions.php';require_role(['admin']);
 $defs=[
 'students'=>['title'=>'Students','table'=>'students','fields'=>['first_name'=>'First Name','middle_name'=>'Middle Name','last_name'=>'Last Name','email'=>'Email','phone'=>'Phone','course_id'=>'Course','section_id'=>'Section','year_level'=>'Year Level'],'search'=>'student_code,first_name,last_name,email'],
 'teachers'=>['title'=>'Teachers','table'=>'teachers','fields'=>['employee_no'=>'Employee No.','first_name'=>'First Name','last_name'=>'Last Name','email'=>'Email'],'search'=>'employee_no,first_name,last_name,email'],
@@ -41,7 +41,7 @@ $sql="SELECT * FROM `$table`".$where." ORDER BY id DESC LIMIT 250";$stmt=$conn->
 include 'includes/header.php';?>
 <?php if($m==='students'): ?>
 <div class="student-management">
-<header class="dashboard-titlebar students-page-heading"><div><p class="dashboard-eyebrow">REGISTRAR RECORDS</p><h1>Students</h1><p class="dashboard-subtitle">Manage student profiles, course placement, and enrollment details.</p></div><a class="btn btn-primary" href="module.php?m=students"><i class="bi bi-person-plus-fill" aria-hidden="true"></i> Add student</a></header>
+<header class="dashboard-titlebar students-page-heading"><div><p class="dashboard-eyebrow">ADMIN RECORDS</p><h1>Students</h1><p class="dashboard-subtitle">Manage student profiles, course placement, and enrollment details.</p></div><a class="btn btn-primary" href="module.php?m=students"><i class="bi bi-person-plus-fill" aria-hidden="true"></i> Add student</a></header>
 <?php else: ?>
 <div class="d-flex justify-content-between align-items-center mb-3"><h3><?=e($d['title'])?></h3><a class="btn btn-outline-secondary" href="module.php?m=<?=$m?>">New record</a></div>
 <?php endif; ?>

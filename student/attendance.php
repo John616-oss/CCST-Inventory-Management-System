@@ -1,4 +1,32 @@
 <?php
-require_once __DIR__.'/../includes/functions.php'; require_role(['student']);
-$uid=(int)current_user()['id'];$q=$conn->prepare("SELECT a.attendance_date,a.time_in,a.status,sub.subject_code FROM students s JOIN attendance a ON a.student_id=s.id LEFT JOIN subjects sub ON sub.id=a.subject_id WHERE s.user_id=? ORDER BY a.attendance_date DESC,a.time_in DESC LIMIT 200");$q->bind_param('i',$uid);$q->execute();$rows=$q->get_result();
-include __DIR__.'/../includes/header.php'; ?><h3 class="mb-3">My Attendance</h3><div class="panel"><div class="table-responsive"><table class="table"><thead><tr><th>Date</th><th>Subject</th><th>Time In</th><th>Status</th></tr></thead><tbody><?php if(!$rows->num_rows): ?><tr><td colspan="4">No attendance records found.</td></tr><?php else: while($r=$rows->fetch_assoc()): ?><tr><td><?=e($r['attendance_date'])?></td><td><?=e($r['subject_code']??'General')?></td><td><?=e($r['time_in'])?></td><td><?=e(ucfirst($r['status']))?></td></tr><?php endwhile; endif; ?></tbody></table></div></div><?php include __DIR__.'/../includes/footer.php'; ?>
+require_once __DIR__ . '/../includes/functions.php';
+require_role(['maintenance']);
+$uid = (int)current_user()['id'];
+$q = $conn->prepare("SELECT a.attendance_date,a.time_in,a.status,sub.subject_code FROM students s JOIN attendance a ON a.student_id=s.id LEFT JOIN subjects sub ON sub.id=a.subject_id WHERE s.user_id=? ORDER BY a.attendance_date DESC,a.time_in DESC LIMIT 200");
+$q->bind_param('i', $uid);
+$q->execute();
+$rows = $q->get_result();
+include __DIR__ . '/../includes/header.php'; ?><h3 class="mb-3">My Attendance</h3>
+<div class="panel">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Subject</th>
+                    <th>Time In</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody><?php if (!$rows->num_rows): ?><tr>
+                        <td colspan="4">No attendance records found.</td>
+                    </tr><?php else: while ($r = $rows->fetch_assoc()): ?><tr>
+                            <td><?= e($r['attendance_date']) ?></td>
+                            <td><?= e($r['subject_code'] ?? 'General') ?></td>
+                            <td><?= e($r['time_in']) ?></td>
+                            <td><?= e(ucfirst($r['status'])) ?></td>
+                        </tr><?php endwhile;
+                        endif; ?></tbody>
+        </table>
+    </div>
+</div><?php include __DIR__ . '/../includes/footer.php'; ?>

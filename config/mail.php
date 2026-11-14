@@ -13,6 +13,6 @@ return [
     'username' => $username,
     'password' => $password,
     'from_email' => $fromEmail,
-    'from_name' => getenv('SMTP_FROM_NAME') ?: 'CCST Registrar',
+    'from_name' => getenv('SMTP_FROM_NAME') ?: 'CCST Admin',
     'encryption' => $encryption
 ];
