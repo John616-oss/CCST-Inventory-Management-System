@@ -2,12 +2,20 @@
 require_once __DIR__.'/includes/functions.php';
 require_role(['admin','staff']);
 ensure_inventory_table($conn);
+$isAdmin=current_user()['role']==='admin';
+$configuredCategories=json_decode(get_system_setting($conn,'equipment_categories',''),true);
+$configuredCategories=is_array($configuredCategories)?array_filter($configuredCategories,'is_string'):[];
+$categoryRows=$conn->query('SELECT DISTINCT category FROM inventory_items ORDER BY category');
+$categoryOptions=$configuredCategories;
+while($categoryRow=$categoryRows->fetch_assoc())$categoryOptions[]=$categoryRow['category'];
+$categoryOptions=array_values(array_unique($categoryOptions));
 
 $conditions=['New','Good','Needs Repair','Damaged'];
 $statuses=['Available','In Use','Under Repair','Disposed'];
 $edit=null;
 
 if($_SERVER['REQUEST_METHOD']==='POST'){
+    if(!$isAdmin){http_response_code(403);exit('Only Admin can modify inventory records.');}
     csrf_check();
     $action=$_POST['action']??'save';
     $id=(int)($_POST['id']??0);
@@ -61,6 +69,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 }
 
 if(isset($_GET['edit'])){
+    if(!$isAdmin){http_response_code(403);exit('Only Admin can edit inventory records.');}
     $id=(int)$_GET['edit'];
     $stmt=$conn->prepare('SELECT * FROM inventory_items WHERE id=?');
     $stmt->bind_param('i',$id);
@@ -70,12 +79,14 @@ if(isset($_GET['edit'])){
 }
 
 if(isset($_GET['qr'])){
+    if(!$isAdmin){http_response_code(403);exit('Only Admin can generate equipment QR labels.');}
     $id=(int)$_GET['qr'];
     $stmt=$conn->prepare('SELECT * FROM inventory_items WHERE id=?');
     $stmt->bind_param('i',$id);
     $stmt->execute();
     $qrItem=$stmt->get_result()->fetch_assoc();
     if(!$qrItem){flash('Equipment record not found.','error');redirect('inventory.php');}
+    log_action('GENERATE EQUIPMENT QR',$qrItem['asset_tag']);
     include __DIR__.'/includes/header.php';
     ?>
     <section class="qr-label-page">
@@ -87,11 +98,13 @@ if(isset($_GET['qr'])){
 }
 
 if(isset($_GET['room_qr'])){
+    if(!$isAdmin){http_response_code(403);exit('Only Admin can generate room QR labels.');}
     $roomLocation=trim($_GET['room_qr']);
     $roomCheck=$conn->prepare("SELECT COUNT(*) AS item_count FROM inventory_items WHERE location=? AND status<>'Disposed'");
     $roomCheck->bind_param('s',$roomLocation);
     $roomCheck->execute();
     if($roomLocation===''||(int)$roomCheck->get_result()->fetch_assoc()['item_count']===0){flash('No active equipment was found in that room.','error');redirect('inventory.php');}
+    log_action('GENERATE ROOM QR LABEL',$roomLocation);
     include __DIR__.'/includes/header.php';
     ?>
     <section class="qr-label-page">
@@ -117,12 +130,13 @@ $items=$stmt->get_result();
 include __DIR__.'/includes/header.php';
 ?>
 <div class="inventory-page">
-    <header class="dashboard-titlebar"><div><p class="dashboard-eyebrow">ASSET REGISTER</p><h1>Equipment inventory</h1><p class="dashboard-subtitle">Tag and keep track of school-owned equipment.</p></div><a class="btn btn-primary" href="inventory.php#item-form"><i class="bi bi-plus-lg" aria-hidden="true"></i> Add equipment</a></header>
+    <header class="dashboard-titlebar"><div><p class="dashboard-eyebrow">ASSET REGISTER</p><h1>Equipment inventory</h1><p class="dashboard-subtitle">Tag and keep track of school-owned equipment.</p></div><?php if($isAdmin): ?><a class="btn btn-primary" href="inventory.php#item-form"><i class="bi bi-plus-lg" aria-hidden="true"></i> Add equipment</a><?php endif; ?></header>
+    <?php if($isAdmin): ?>
     <section class="panel inventory-form-panel" id="item-form">
         <div class="inventory-form-heading"><div><h2><?=$edit?'Edit equipment':'Add equipment'?></h2><p><?=$edit?'Asset tags stay fixed so existing QR labels remain valid.':'A unique asset tag and QR label are created automatically.'?></p></div><?php if($edit): ?><a class="btn btn-sm btn-outline-secondary" href="inventory.php">Cancel</a><?php endif; ?></div>
         <form method="post" class="row g-3"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=e($edit['id']??0)?>">
             <div class="col-md-4"><label class="form-label" for="item_name">Equipment name</label><input class="form-control" id="item_name" name="item_name" value="<?=e($edit['item_name']??'')?>" placeholder="Desktop computer" required></div>
-            <div class="col-md-4"><label class="form-label" for="category">Category</label><input class="form-control" id="category" name="category" list="category-options" value="<?=e($edit['category']??'')?>" placeholder="Computer equipment" required><datalist id="category-options"><option value="Computer"><option value="Audio-visual"><option value="Office equipment"><option value="Furniture"><option value="Network equipment"><option value="Appliance"></datalist></div>
+            <div class="col-md-4"><label class="form-label" for="category">Category</label><input class="form-control" id="category" name="category" list="category-options" value="<?=e($edit['category']??'')?>" placeholder="Computer equipment" required><datalist id="category-options"><?php foreach($categoryOptions as $categoryOption): ?><option value="<?=e($categoryOption)?>"><?php endforeach; ?></datalist></div>
             <div class="col-md-4"><label class="form-label" for="location">Location / room</label><input class="form-control" id="location" name="location" value="<?=e($edit['location']??'')?>" placeholder="Computer Lab 1" required></div>
             <div class="col-md-3"><label class="form-label" for="quantity">Quantity</label><input class="form-control" id="quantity" name="quantity" type="number" min="1" value="<?=e($edit['quantity']??1)?>" required></div>
             <div class="col-md-3"><label class="form-label" for="unit">Unit</label><input class="form-control" id="unit" name="unit" value="<?=e($edit['unit']??'piece')?>" placeholder="piece" required></div>
@@ -135,7 +149,8 @@ include __DIR__.'/includes/header.php';
             <div class="col-12"><button class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> <?=$edit?'Save changes':'Save equipment'?></button></div>
         </form>
     </section>
-    <section class="panel inventory-list-panel">
+    <?php endif; ?>
+    <section class="panel inventory-list-panel" id="inventory-list">
         <div class="inventory-list-heading"><div><h2>All equipment</h2><p><?=number_format($items->num_rows)?> records shown, up to 300</p></div><form class="inventory-filter" method="get"><label class="visually-hidden" for="inventory-search">Search equipment</label><input class="form-control" id="inventory-search" name="q" value="<?=e($query)?>" placeholder="Search tag, name, category, room"><label class="visually-hidden" for="inventory-status">Filter by status</label><select class="form-select" id="inventory-status" name="status"><option value="">All statuses</option><?php foreach($statuses as $status): ?><option value="<?=e($status)?>" <?=$statusFilter===$status?'selected':''?>><?=e($status)?></option><?php endforeach; ?></select><button class="btn btn-outline-secondary" title="Apply filters" aria-label="Apply filters"><i class="bi bi-search" aria-hidden="true"></i></button></form></div>
         <div class="table-responsive"><table class="table table-hover align-middle inventory-table"><thead><tr><th>Asset tag</th><th>Equipment</th><th>Category</th><th>Qty</th><th>Location</th><th>Condition</th><th>Status</th><th>Last repaired by</th><th aria-label="Actions"></th></tr></thead><tbody>
         <?php if($items->num_rows): while($item=$items->fetch_assoc()): ?><tr><td class="inventory-tag"><?=e($item['asset_tag'])?></td><td><strong><?=e($item['item_name'])?></strong><?php if($item['custodian']): ?><small class="d-block text-secondary">Assigned: <?=e($item['custodian'])?></small><?php endif; ?></td><td><?=e($item['category'])?></td><td><?=number_format((int)$item['quantity'])?> <?=e($item['unit'])?></td><td><?=e($item['location'])?> <a class="room-qr-link" href="inventory.php?room_qr=<?=e(rawurlencode($item['location']))?>" title="Print QR label for <?=e($item['location'])?>" aria-label="Print room QR label for <?=e($item['location'])?>"><i class="bi bi-qr-code" aria-hidden="true"></i></a></td><td><?=e($item['condition_status'])?></td><td><span class="inventory-status"><?=e($item['status'])?></span></td><td><?=e($item['last_repaired_by']??'—')?></td><td class="inventory-actions"><a class="btn btn-sm btn-outline-secondary" href="maintenance_history.php?id=<?=$item['id']?>" title="View maintenance history" aria-label="View maintenance history for <?=e($item['asset_tag'])?>"><i class="bi bi-clock-history" aria-hidden="true"></i></a><a class="btn btn-sm btn-outline-secondary" href="inventory.php?qr=<?=$item['id']?>" title="Print QR label" aria-label="Print QR label for <?=e($item['asset_tag'])?>"><i class="bi bi-qr-code" aria-hidden="true"></i></a><a class="btn btn-sm btn-outline-primary" href="inventory.php?edit=<?=$item['id']?>#item-form" title="Edit equipment" aria-label="Edit <?=e($item['item_name'])?>"><i class="bi bi-pencil" aria-hidden="true"></i></a><form method="post" onsubmit="return confirm('Delete this equipment record?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?=$item['id']?>"><button class="btn btn-sm btn-outline-danger" title="Delete equipment" aria-label="Delete <?=e($item['item_name'])?>"><i class="bi bi-trash3" aria-hidden="true"></i></button></form></td></tr><?php endwhile; else: ?><tr><td colspan="9" class="text-center py-5"><strong>No matching equipment</strong><br><span class="muted">Add an item or change your search.</span></td></tr><?php endif; ?>

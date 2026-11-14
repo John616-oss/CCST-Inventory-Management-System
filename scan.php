@@ -4,6 +4,7 @@ require_role(['admin','staff','maintenance']);
 ensure_inventory_table($conn);
 $user=current_user();
 $isMaintenance=$user['role']==='maintenance';
+$isAdmin=$user['role']==='admin';
 $tag=trim($_GET['tag']??'');
 $isRoomScan=str_starts_with($tag,'CCST-ROOM:');
 $roomLocation=$isRoomScan?trim(substr($tag,10)):'';
@@ -12,69 +13,29 @@ $roomItems=null;
 
 if($_SERVER['REQUEST_METHOD']==='POST'){
     csrf_check();
-    if(!$isMaintenance){http_response_code(403);exit('Repair actions are only available to Maintenance accounts.');}
-    $itemId=(int)($_POST['item_id']??0);
-    $scanCode=trim($_POST['scan_tag']??'');
-    $action=$_POST['repair_action']??'';
-    $roomAction=str_starts_with($scanCode,'CCST-ROOM:');
-    $room=trim(substr($scanCode,10));
-    if(!in_array($action,['start','complete'],true)||$scanCode===''){
-        flash('Invalid repair action. Scan the equipment or room QR again.','error');
-        redirect('maintenance/dashboard.php');
-    }
-    if($roomAction){
-        $check=$conn->prepare("SELECT id,item_name FROM inventory_items WHERE id=? AND location=? AND status<>'Disposed' AND (condition_status IN ('Needs Repair','Damaged') OR status='Under Repair')");
-        $check->bind_param('is',$itemId,$room);
-    }else{
-        $check=$conn->prepare("SELECT id,item_name FROM inventory_items WHERE id=? AND asset_tag=? AND status<>'Disposed' AND (condition_status IN ('Needs Repair','Damaged') OR status='Under Repair')");
-        $check->bind_param('is',$itemId,$scanCode);
-    }
-    $check->execute();
-    $repairItem=$check->get_result()->fetch_assoc();
-    if(!$repairItem){
-        flash('That equipment is not part of an active repair task. Scan its QR again.','error');
-        redirect('maintenance/dashboard.php');
-    }
-    if($action==='start'){
-        $update=$conn->prepare("UPDATE inventory_items SET status='Under Repair' WHERE id=?");
-        $message=$repairItem['item_name'].' marked Under Repair.';
-        $logAction='START EQUIPMENT REPAIR';
-    }else{
-        $update=$conn->prepare("UPDATE inventory_items SET condition_status='Good',status='Available' WHERE id=?");
-        $message=$repairItem['item_name'].' marked repaired and Available.';
-        $logAction='COMPLETE EQUIPMENT REPAIR';
-    }
-    $update->bind_param('i',$itemId);
-    $update->execute();
-    $historyAction=$action==='start'?'started':'completed';
-    $history=$conn->prepare('INSERT INTO maintenance_history(inventory_item_id,user_id,action) VALUES(?,?,?)');
-    $history->bind_param('iis',$itemId,$user['id'],$historyAction);
-    $history->execute();
-    log_action($logAction,$repairItem['item_name'].' (#'.$itemId.')');
-    flash($message);
-    redirect('scan.php?tag='.rawurlencode($scanCode));
+    http_response_code(405);
+    exit('Use the maintenance request page to record repairs.');
 }
 
 if($tag!==''){
     if($isRoomScan){
-        if($isMaintenance){
-            $roomQuery=$conn->prepare("SELECT id,asset_tag,item_name,category,location,condition_status,status,updated_at FROM inventory_items WHERE location=? AND status<>'Disposed' AND (condition_status IN ('Needs Repair','Damaged') OR status='Under Repair') ORDER BY updated_at ASC");
-        }else{
-            $roomQuery=$conn->prepare("SELECT id,asset_tag,item_name,category,location,condition_status,status,updated_at FROM inventory_items WHERE location=? AND status<>'Disposed' ORDER BY item_name");
-        }
+        $roomQuery=$conn->prepare("SELECT id,asset_tag,item_name,category,location,quantity,unit,condition_status,status,updated_at FROM inventory_items WHERE location=? AND status<>'Disposed' ORDER BY item_name");
         $roomQuery->bind_param('s',$roomLocation);
         $roomQuery->execute();
         $roomItems=$roomQuery->get_result();
     }else{
-        if($isMaintenance){
-            $itemQuery=$conn->prepare("SELECT * FROM inventory_items WHERE asset_tag=? AND status<>'Disposed' AND (condition_status IN ('Needs Repair','Damaged') OR status='Under Repair') LIMIT 1");
-        }else{
-            $itemQuery=$conn->prepare("SELECT * FROM inventory_items WHERE asset_tag=? AND status<>'Disposed' LIMIT 1");
-        }
+        $itemQuery=$conn->prepare("SELECT * FROM inventory_items WHERE asset_tag=? AND status<>'Disposed' LIMIT 1");
         $itemQuery->bind_param('s',$tag);
         $itemQuery->execute();
         $item=$itemQuery->get_result()->fetch_assoc();
     }
+}
+$itemHistory=null;
+if($isMaintenance&&$item){
+    $itemHistoryQuery=$conn->prepare('SELECT h.action,h.work_description,h.created_at,u.full_name FROM maintenance_history h JOIN users u ON u.id=h.user_id WHERE h.inventory_item_id=? ORDER BY h.id DESC LIMIT 5');
+    $itemHistoryQuery->bind_param('i',$item['id']);
+    $itemHistoryQuery->execute();
+    $itemHistory=$itemHistoryQuery->get_result();
 }
 include __DIR__.'/includes/header.php';
 ?>
@@ -87,15 +48,15 @@ include __DIR__.'/includes/header.php';
     </section>
     <?php if($tag!==''&&$isRoomScan): ?>
         <section class="panel scan-result"><div><p class="dashboard-eyebrow">ROOM SCANNED</p><h2><?=e($roomLocation)?></h2></div>
-            <?php if($roomItems&&$roomItems->num_rows): ?><p class="muted mt-2"><?=$isMaintenance?'Repair items in this room':'Equipment recorded in this room'?></p><div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Asset tag</th><th>Equipment</th><th>Condition</th><th>Status</th><?php if($isMaintenance): ?><th>Repair</th><?php endif; ?></tr></thead><tbody>
-                <?php while($roomItem=$roomItems->fetch_assoc()): ?><tr><td class="inventory-tag"><?=e($roomItem['asset_tag'])?></td><td><?=e($roomItem['item_name'])?></td><td><?=e($roomItem['condition_status'])?></td><td><?=e($roomItem['status'])?></td><?php if($isMaintenance): ?><td><form method="post" class="repair-action-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="item_id" value="<?=$roomItem['id']?>"><input type="hidden" name="scan_tag" value="<?=e($tag)?>"><?php if($roomItem['status']==='Under Repair'): ?><button class="btn btn-sm btn-success" name="repair_action" value="complete"><i class="bi bi-check2" aria-hidden="true"></i> Mark fixed</button><?php else: ?><button class="btn btn-sm btn-outline-primary" name="repair_action" value="start"><i class="bi bi-wrench-adjustable" aria-hidden="true"></i> Start repair</button><?php endif; ?></form></td><?php endif; ?></tr><?php endwhile; ?>
-            </tbody></table></div><?php else: ?><p class="scan-empty-message">No active repair items were found in this room.</p><?php endif; ?>
+            <?php if($roomItems&&$roomItems->num_rows): ?><p class="muted mt-2"><?=$isMaintenance?'Equipment in this room':'Equipment recorded in this room'?></p><div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Asset tag</th><th>Equipment</th><th>Quantity</th><th>Condition</th><th>Status</th><?php if($isMaintenance): ?><th>Action</th><?php endif; ?></tr></thead><tbody>
+                <?php while($roomItem=$roomItems->fetch_assoc()): ?><tr><td class="inventory-tag"><?=e($roomItem['asset_tag'])?></td><td><?=e($roomItem['item_name'])?></td><td><?=number_format((int)$roomItem['quantity'])?> <?=e($roomItem['unit'])?></td><td><?=e($roomItem['condition_status'])?></td><td><?=e($roomItem['status'])?></td><?php if($isMaintenance): ?><td><a class="btn btn-sm btn-outline-primary" href="<?=e(BASE_URL)?>/maintenance/requests.php?equipment_id=<?=(int)$roomItem['id']?>#report"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Report</a></td><?php endif; ?></tr><?php endwhile; ?>
+            </tbody></table></div><?php else: ?><p class="scan-empty-message">No equipment was found in this room.</p><?php endif; ?>
         </section>
     <?php elseif($tag!==''&&!$item): ?>
         <div class="alert error mt-3"><?=$isMaintenance?'No active repair task matches this QR code. Check with Staff if the item needs repair.':'No equipment or room found for this code.'?></div>
     <?php elseif($item): ?>
-        <section class="panel scan-result"><div><p class="dashboard-eyebrow"><?=$isMaintenance?'REPAIR ITEM':'ASSET FOUND'?></p><h2><?=e($item['item_name'])?></h2><p class="inventory-tag"><?=e($item['asset_tag'])?></p></div><dl class="scan-details"><div><dt>Category</dt><dd><?=e($item['category'])?></dd></div><div><dt>Location</dt><dd><?=e($item['location'])?></dd></div><div><dt>Condition</dt><dd><?=e($item['condition_status'])?></dd></div><div><dt>Status</dt><dd><?=e($item['status'])?></dd></div><?php if(!$isMaintenance): ?><div><dt>Quantity</dt><dd><?=number_format((int)$item['quantity'])?> <?=e($item['unit'])?></dd></div><?php if($item['custodian']): ?><div><dt>Assigned to</dt><dd><?=e($item['custodian'])?></dd></div><?php endif; ?><?php endif; ?></dl>
-            <?php if($isMaintenance): ?><form method="post" class="repair-action-form"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="item_id" value="<?=$item['id']?>"><input type="hidden" name="scan_tag" value="<?=e($tag)?>"><?php if($item['status']==='Under Repair'): ?><button class="btn btn-success" name="repair_action" value="complete"><i class="bi bi-check2" aria-hidden="true"></i> Mark repair complete</button><?php else: ?><button class="btn btn-primary" name="repair_action" value="start"><i class="bi bi-wrench-adjustable" aria-hidden="true"></i> Start repair</button><?php endif; ?></form><?php else: ?><a class="btn btn-outline-primary" href="inventory.php?edit=<?=$item['id']?>#item-form"><i class="bi bi-pencil" aria-hidden="true"></i> Edit asset</a><?php endif; ?>
+        <section class="panel scan-result"><div><p class="dashboard-eyebrow"><?=$isMaintenance?'EQUIPMENT DETAILS':'ASSET FOUND'?></p><h2><?=e($item['item_name'])?></h2><p class="inventory-tag"><?=e($item['asset_tag'])?></p></div><dl class="scan-details"><div><dt>Category</dt><dd><?=e($item['category'])?></dd></div><div><dt>Location</dt><dd><?=e($item['location'])?></dd></div><div><dt>Quantity</dt><dd><?=number_format((int)$item['quantity'])?> <?=e($item['unit'])?></dd></div><div><dt>Condition</dt><dd><?=e($item['condition_status'])?></dd></div><div><dt>Availability status</dt><dd><?=e($item['status'])?></dd></div><?php if(!$isMaintenance&&$item['custodian']): ?><div><dt>Assigned to</dt><dd><?=e($item['custodian'])?></dd></div><?php endif; ?></dl>
+            <?php if($isMaintenance): ?><div class="d-flex flex-wrap gap-2"><a class="btn btn-primary" href="<?=e(BASE_URL)?>/maintenance/requests.php?equipment_id=<?=(int)$item['id']?>#report"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Report damage</a><a class="btn btn-outline-primary" href="<?=e(BASE_URL)?>/maintenance_history.php?id=<?=(int)$item['id']?>"><i class="bi bi-clock-history" aria-hidden="true"></i> View repair history</a></div><div class="maintenance-scan-history mt-4"><h3>Recent maintenance history</h3><?php if($itemHistory&&$itemHistory->num_rows): ?><ul><?php while($historyItem=$itemHistory->fetch_assoc()): ?><li><strong><?=e(match($historyItem['action']){'reported'=>'Damage reported','started'=>'Repair started','completed'=>'Repair completed',default=>'Cannot be repaired'})?></strong><span><?=e($historyItem['work_description']?:'No details recorded')?></span><small><?=e($historyItem['full_name'])?> · <?=e(date('M j, Y g:i A',strtotime($historyItem['created_at'])))?></small></li><?php endwhile; ?></ul><?php else: ?><p class="muted">No maintenance activity has been recorded.</p><?php endif; ?></div><?php elseif($isAdmin): ?><a class="btn btn-outline-primary" href="inventory.php?edit=<?=$item['id']?>#item-form"><i class="bi bi-pencil" aria-hidden="true"></i> Edit asset</a><?php else: ?><span class="muted">View equipment in inventory.</span><?php endif; ?>
         </section>
     <?php endif; ?>
 </div>

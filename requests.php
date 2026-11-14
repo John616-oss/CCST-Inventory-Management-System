@@ -1,7 +1,7 @@
 <?php
-require_once __DIR__.'/includes/functions.php';
+require_once __DIR__.'/staff/functions.php';
 require_role(['staff']);
-ensure_equipment_requests_table($conn);
+ensure_staff_equipment_transactions_table($conn);
 $userId=(int)current_user()['id'];
 
 if($_SERVER['REQUEST_METHOD']==='POST'){
@@ -17,12 +17,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         redirect('requests.php');
     }
     if($action==='return'){
-        $update=$conn->prepare("UPDATE equipment_requests SET status='returned' WHERE id=? AND requester_id=? AND status='approved'");
-        $update->bind_param('ii',$requestId,$userId);
-        $update->execute();
-        if($update->affected_rows){log_action('RETURN EQUIPMENT','Request #'.$requestId);flash('Return recorded.');}
-        else flash('Only your approved requests can be marked returned.','error');
-        redirect('requests.php');
+        flash('Returns must be processed by Staff through Release & Returns.','error');
+        redirect('staff/release_returns.php#return');
     }
 
     $itemId=(int)($_POST['item_id']??0);
@@ -45,7 +41,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         if(!$item||$item['status']!=='Available'||in_array($item['condition_status'],['Needs Repair','Damaged'],true)){
             throw new DomainException('That equipment is unavailable for borrowing.');
         }
-        $borrowedQuery=$conn->prepare("SELECT COALESCE(SUM(quantity),0) AS borrowed FROM equipment_requests WHERE inventory_item_id=? AND status='approved'");
+        $borrowedQuery=$conn->prepare("SELECT COALESCE(SUM(CASE action WHEN 'released' THEN CAST(quantity AS SIGNED) WHEN 'returned' THEN -CAST(quantity AS SIGNED) ELSE 0 END),0) AS borrowed FROM equipment_transactions WHERE inventory_item_id=? AND action IN ('released','returned')");
         $borrowedQuery->bind_param('i',$itemId);
         $borrowedQuery->execute();
         $borrowed=(int)$borrowedQuery->get_result()->fetch_assoc()['borrowed'];
@@ -69,7 +65,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     redirect('requests.php');
 }
 
-$availableItems=$conn->query("SELECT i.id,i.asset_tag,i.item_name,i.location,i.quantity-COALESCE(b.borrowed,0) AS available_units FROM inventory_items i LEFT JOIN (SELECT inventory_item_id,SUM(quantity) AS borrowed FROM equipment_requests WHERE status='approved' GROUP BY inventory_item_id) b ON b.inventory_item_id=i.id WHERE i.status='Available' AND i.condition_status NOT IN ('Needs Repair','Damaged') AND i.quantity>COALESCE(b.borrowed,0) ORDER BY i.item_name");
+$borrowedSubquery=staff_borrowed_units_subquery();
+$availableItems=$conn->query("SELECT i.id,i.asset_tag,i.item_name,i.location,GREATEST(i.quantity-COALESCE(b.borrowed,0),0) AS available_units FROM inventory_items i LEFT JOIN $borrowedSubquery b ON b.inventory_item_id=i.id WHERE i.status='Available' AND i.condition_status NOT IN ('Needs Repair','Damaged') AND i.quantity>COALESCE(b.borrowed,0) ORDER BY i.item_name");
 $requestsQuery=$conn->prepare('SELECT r.*,i.asset_tag,i.item_name,i.location,u.full_name AS reviewed_by_name FROM equipment_requests r JOIN inventory_items i ON i.id=r.inventory_item_id LEFT JOIN users u ON u.id=r.reviewed_by WHERE r.requester_id=? ORDER BY r.id DESC LIMIT 100');
 $requestsQuery->bind_param('i',$userId);
 $requestsQuery->execute();
@@ -89,7 +86,7 @@ include __DIR__.'/includes/header.php';
     </section>
     <section class="panel approval-list-panel"><div class="approval-section-heading"><div><h2>Request history</h2><p><?=number_format($requests->num_rows)?> requests shown</p></div></div>
         <div class="table-responsive"><table class="table table-hover align-middle approval-table"><thead><tr><th>Request</th><th>Equipment</th><th>Qty</th><th>Purpose</th><th>Return date</th><th>Status</th><th>Admin note</th><th></th></tr></thead><tbody>
-        <?php if($requests->num_rows): while($request=$requests->fetch_assoc()): ?><tr><td class="inventory-tag">BR-<?=str_pad((string)$request['id'],5,'0',STR_PAD_LEFT)?></td><td><strong><?=e($request['item_name'])?></strong><small class="d-block text-secondary"><?=e($request['asset_tag'])?> · <?=e($request['location'])?></small></td><td><?=number_format((int)$request['quantity'])?></td><td><?=e($request['purpose'])?></td><td><?=e(date('M j, Y',strtotime($request['expected_return_date'])))?></td><td><span class="request-status status-<?=e($request['status'])?>"><?=e(ucfirst($request['status']))?></span></td><td><?=e($request['review_note']?:'—')?><?php if($request['reviewed_by_name']): ?><small class="d-block text-secondary">By <?=e($request['reviewed_by_name'])?></small><?php endif; ?></td><td><?php if($request['status']==='pending'): ?><form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="cancel"><input type="hidden" name="request_id" value="<?=$request['id']?>"><button class="btn btn-sm btn-outline-secondary" type="submit" title="Cancel request" aria-label="Cancel request BR-<?=str_pad((string)$request['id'],5,'0',STR_PAD_LEFT)?>"><i class="bi bi-x-lg" aria-hidden="true"></i></button></form><?php elseif($request['status']==='approved'): ?><form method="post" onsubmit="return confirm('Mark this equipment as returned?')"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="return"><input type="hidden" name="request_id" value="<?=$request['id']?>"><button class="btn btn-sm btn-outline-primary" type="submit"><i class="bi bi-box-arrow-in-left" aria-hidden="true"></i> Mark returned</button></form><?php endif; ?></td></tr><?php endwhile; else: ?><tr><td colspan="8" class="text-center py-5"><strong>No borrowing requests yet</strong><br><span class="muted">Submit a request above to get started.</span></td></tr><?php endif; ?>
+        <?php if($requests->num_rows): while($request=$requests->fetch_assoc()): ?><tr><td class="inventory-tag">BR-<?=str_pad((string)$request['id'],5,'0',STR_PAD_LEFT)?></td><td><strong><?=e($request['item_name'])?></strong><small class="d-block text-secondary"><?=e($request['asset_tag'])?> · <?=e($request['location'])?></small></td><td><?=number_format((int)$request['quantity'])?></td><td><?=e($request['purpose'])?></td><td><?=e(date('M j, Y',strtotime($request['expected_return_date'])))?></td><td><span class="request-status status-<?=e($request['status'])?>"><?=e(ucfirst($request['status']))?></span></td><td><?=e($request['review_note']?:'—')?><?php if($request['reviewed_by_name']): ?><small class="d-block text-secondary">By <?=e($request['reviewed_by_name'])?></small><?php endif; ?></td><td><?php if($request['status']==='pending'): ?><form method="post"><input type="hidden" name="csrf" value="<?=e(csrf_token())?>"><input type="hidden" name="action" value="cancel"><input type="hidden" name="request_id" value="<?=$request['id']?>"><button class="btn btn-sm btn-outline-secondary" type="submit" title="Cancel request" aria-label="Cancel request BR-<?=str_pad((string)$request['id'],5,'0',STR_PAD_LEFT)?>"><i class="bi bi-x-lg" aria-hidden="true"></i></button></form><?php elseif($request['status']==='approved'): ?><a class="btn btn-sm btn-outline-primary" href="staff/release_returns.php#release">Prepare release</a><?php endif; ?></td></tr><?php endwhile; else: ?><tr><td colspan="8" class="text-center py-5"><strong>No borrowing requests yet</strong><br><span class="muted">Submit a request above to get started.</span></td></tr><?php endif; ?>
         </tbody></table></div>
     </section>
 </div>

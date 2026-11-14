@@ -2,14 +2,13 @@
 require_once __DIR__.'/includes/functions.php';
 $msg='';
 $demoLink='';
-$accountRole='maintenance';
+$accountRole='staff';
 
 if($_SERVER['REQUEST_METHOD']==='POST'){
     csrf_check();
     $name=trim($_POST['name']??'');
     $email=trim($_POST['email']??'');
     $pass=$_POST['password']??'';
-    $accountRole=in_array($_POST['account_role']??'', ['staff','maintenance'], true)?$_POST['account_role']:'maintenance';
     if($name===''||!filter_var($email,FILTER_VALIDATE_EMAIL)||strlen($pass)<10){
         $msg='Check your details. Password must be at least 10 characters.';
     }else{
@@ -54,18 +53,13 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     </section>
     <section class="login-content">
         <div class="login-form-wrap">
-            <div class="login-heading"><p class="login-kicker">ASSET MANAGEMENT</p><h2>Create account</h2><p class="muted">Choose the account role for this inventory user.</p></div>
+            <div class="login-heading"><p class="login-kicker">ASSET MANAGEMENT</p><h2>Create Staff account</h2><p class="muted">Maintenance accounts are created by an Administrator.</p></div>
             <?php if($msg): ?><div class="alert alert-info auth-message"><?=e($msg)?></div><?php endif; ?>
             <?php if($demoLink): ?><a class="btn btn-success login-submit auth-message" href="<?=e($demoLink)?>">Verify account</a><?php endif; ?>
             <form method="post">
                 <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
                 <label class="form-label" for="name">Full name</label>
                 <input class="form-control login-input" id="name" name="name" autocomplete="name" required>
-                <label class="form-label" for="account_role">Account role</label>
-                <select class="form-select login-input" id="account_role" name="account_role">
-                    <option value="maintenance" <?=$accountRole==='maintenance'?'selected':''?>>Maintenance</option>
-                    <option value="staff" <?=$accountRole==='staff'?'selected':''?>>Staff</option>
-                </select>
                 <label class="form-label" for="email">Email address</label>
                 <input class="form-control login-input" id="email" type="email" name="email" autocomplete="email" required>
                 <label class="form-label" for="password">Password</label>
