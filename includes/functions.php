@@ -212,21 +212,97 @@ function ensure_password_resets_table(mysqli $conn): void {
 }
 function send_smtp_mail(string $to, string $subject, string $html): bool {
     $cfg=require __DIR__.'/../config/mail.php';
-    if (empty($cfg['enabled']) || empty($cfg['password']) || empty($cfg['from_email'])) return false;
-    $host=$cfg['host']; $port=(int)$cfg['port'];
-    $fp=@fsockopen(($cfg['encryption']==='ssl'?'ssl://':'').$host,$port,$errno,$errstr,15);
-    if (!$fp) return false;
+    $logFailure=function(string $reason): bool {
+        error_log('SMTP mail delivery failed: '.$reason);
+        return false;
+    };
+    if (empty($cfg['enabled'])) return $logFailure('SMTP username or password is not configured.');
+
+    $to=trim($to);
+    $fromEmail=trim((string)$cfg['from_email']);
+    $host=trim((string)$cfg['host']);
+    $port=(int)$cfg['port'];
+    $encryption=strtolower((string)$cfg['encryption']);
+    if (!filter_var($to,FILTER_VALIDATE_EMAIL) || !filter_var($fromEmail,FILTER_VALIDATE_EMAIL)) {
+        return $logFailure('The recipient or sender email address is invalid.');
+    }
+    if ($host==='' || $port<1 || $port>65535 || !in_array($encryption,['tls','ssl'],true)) {
+        return $logFailure('SMTP host, port, or encryption setting is invalid.');
+    }
+
+    $transport=$encryption==='ssl'?'ssl://':'';
+    $fp=@fsockopen($transport.$host,$port,$errno,$errstr,15);
+    if (!$fp) return $logFailure('Could not connect to the configured SMTP server (error '.$errno.').');
     stream_set_timeout($fp,15);
-    $read=function() use($fp) { $data=''; while (($line=fgets($fp,515))!==false) { $data.=$line; if (isset($line[3]) && $line[3]===' ') break; } return $data; };
-    $cmd=function($s) use($fp,$read) { fwrite($fp,$s."\r\n"); return $read(); };
-    $read();
-    $cmd('EHLO localhost');
-    if ($cfg['encryption']==='tls') { $cmd('STARTTLS'); if (!stream_socket_enable_crypto($fp,true,STREAM_CRYPTO_METHOD_TLS_CLIENT)) { fclose($fp); return false; } $cmd('EHLO localhost'); }
-    $cmd('AUTH LOGIN'); $cmd(base64_encode($cfg['username'])); $auth=$cmd(base64_encode($cfg['password']));
-    if (strpos($auth,'235')===false) { fclose($fp); return false; }
-    $cmd('MAIL FROM:<'.$cfg['from_email'].'>'); $cmd('RCPT TO:<'.$to.'>'); $cmd('DATA');
-    $headers="From: ".$cfg['from_name']." <".$cfg['from_email'].">\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n";
-    $body=$headers."To: ".$to."\r\nSubject: ".mb_encode_mimeheader($subject)."\r\n\r\n".$html."\r\n.";
-    $result=$cmd($body); $cmd('QUIT'); fclose($fp);
-    return strpos($result,'250')!==false;
+
+    $readReply=function() use($fp): array {
+        $response='';
+        do {
+            $line=fgets($fp,515);
+            if ($line===false) throw new RuntimeException('SMTP server closed the connection or timed out.');
+            $response.=$line;
+        } while (isset($line[3]) && $line[3]==='-');
+
+        if (!preg_match('/^(\d{3})[ -]/',$response,$matches)) {
+            throw new RuntimeException('SMTP server returned an invalid response.');
+        }
+        return [(int)$matches[1],$response];
+    };
+    $expect=function(string $stage,array $acceptedCodes) use($readReply): void {
+        [$code]=$readReply();
+        if (!in_array($code,$acceptedCodes,true)) {
+            throw new RuntimeException('SMTP '.$stage.' failed (response '.$code.').');
+        }
+    };
+    $write=function(string $data) use($fp): void {
+        $length=strlen($data);
+        $written=0;
+        while ($written<$length) {
+            $count=fwrite($fp,substr($data,$written));
+            if ($count===false || $count===0) throw new RuntimeException('Could not write to the SMTP connection.');
+            $written+=$count;
+        }
+    };
+    $command=function(string $command,string $stage,array $acceptedCodes) use($write,$expect): void {
+        $write($command."\r\n");
+        $expect($stage,$acceptedCodes);
+    };
+
+    try {
+        $expect('greeting',[220]);
+        $command('EHLO localhost','EHLO',[250]);
+        if ($encryption==='tls') {
+            $command('STARTTLS','STARTTLS',[220]);
+            if (!@stream_socket_enable_crypto($fp,true,STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                throw new RuntimeException('Could not establish SMTP TLS encryption.');
+            }
+            $command('EHLO localhost','EHLO after TLS',[250]);
+        }
+        $command('AUTH LOGIN','authentication',[334]);
+        $command(base64_encode($cfg['username']),'username authentication',[334]);
+        $command(base64_encode($cfg['password']),'password authentication',[235]);
+        $command('MAIL FROM:<'.$fromEmail.'>','sender',[250]);
+        $command('RCPT TO:<'.$to.'>','recipient',[250,251]);
+        $command('DATA','message setup',[354]);
+
+        $fromName=str_replace(["\r","\n"],'',(string)$cfg['from_name']);
+        $headers='From: '.$fromName.' <'.$fromEmail.">\r\n"
+            .'To: '.$to."\r\n"
+            .'Subject: =?UTF-8?B?'.base64_encode($subject)."?=\r\n"
+            ."MIME-Version: 1.0\r\n"
+            ."Content-Type: text/html; charset=UTF-8\r\n";
+        $body=str_replace(["\r\n","\r"],"\n",$html);
+        $body=str_replace("\n","\r\n",$body);
+        $message=$headers."\r\n".$body;
+        $message=preg_replace('/^\./m','..',$message);
+        if ($message===null) throw new RuntimeException('Could not prepare the email message.');
+        $write($message."\r\n.\r\n");
+        $expect('message delivery',[250]);
+        $write("QUIT\r\n");
+        return true;
+    } catch (RuntimeException $e) {
+        return $logFailure($e->getMessage());
+    } finally {
+        if (is_resource($fp)) fclose($fp);
+    }
 }

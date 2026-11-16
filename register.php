@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__.'/includes/functions.php';
 $msg='';
-$demoLink='';
 $accountRole='staff';
 
 if($_SERVER['REQUEST_METHOD']==='POST'){
@@ -24,11 +23,13 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
             $verify=$conn->prepare('INSERT INTO email_verifications(user_id,token_hash,expires_at) VALUES(?,?,?)');
             $verify->bind_param('iss',$userId,$tokenHash,$expires);
             $verify->execute();
-            $link=BASE_URL.'/verify.php?token='.$token;
+            $link=rtrim(BASE_URL,'/').'/verify.php?token='.$token;
             $sent=send_smtp_mail($email,'Verify your CCST inventory account','<p>Welcome to the CCST School Inventory System.</p><p><a href="'.$link.'">Verify your email</a></p><p>This link expires in 24 hours.</p>');
-            $localHost=in_array(parse_url(BASE_URL,PHP_URL_HOST),['localhost','127.0.0.1','::1'],true);
-            $msg=$sent?'Registration successful. Check your email for the verification link.':($localHost?'Account created. Email is not configured; verify your account using the local link below.':'Account created, but email delivery failed.');
-            if(!$sent&&$localHost)$demoLink=$link;
+            if(!$sent){
+                $invalidate=$conn->prepare('UPDATE email_verifications SET used_at=NOW() WHERE token_hash=? AND used_at IS NULL');
+                $invalidate->bind_param('s',$tokenHash);$invalidate->execute();
+            }
+            $msg=$sent?'Registration successful. Check your email for the verification link.':'Account created, but the verification email could not be sent. Check SMTP configuration, then use Resend verification email.';
         }catch(Throwable $e){$msg='Registration failed. Email may already be registered.';}
     }
 }
@@ -55,7 +56,6 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         <div class="login-form-wrap">
             <div class="login-heading"><p class="login-kicker">ASSET MANAGEMENT</p><h2>Create Staff account</h2><p class="muted">Maintenance accounts are created by an Administrator.</p></div>
             <?php if($msg): ?><div class="alert alert-info auth-message"><?=e($msg)?></div><?php endif; ?>
-            <?php if($demoLink): ?><a class="btn btn-success login-submit auth-message" href="<?=e($demoLink)?>">Verify account</a><?php endif; ?>
             <form method="post">
                 <input type="hidden" name="csrf" value="<?=e(csrf_token())?>">
                 <label class="form-label" for="name">Full name</label>
