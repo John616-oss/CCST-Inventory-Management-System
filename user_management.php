@@ -142,10 +142,10 @@ include __DIR__ . '/includes/header.php';
     </header>
 
     <section class="admin-metric-grid admin-user-metrics" aria-label="User summary">
-        <article class="admin-metric metric-blue"><div class="admin-metric-icon"><i class="bi bi-people-fill" aria-hidden="true"></i></div><div><strong><?= number_format((int) $counts['total']) ?></strong><span>Registered users</span></div></article>
-        <article class="admin-metric metric-green"><div class="admin-metric-icon"><i class="bi bi-person-badge" aria-hidden="true"></i></div><div><strong><?= number_format((int) $counts['staff']) ?></strong><span>Active Staff</span></div></article>
-        <article class="admin-metric metric-amber"><div class="admin-metric-icon"><i class="bi bi-wrench-adjustable" aria-hidden="true"></i></div><div><strong><?= number_format((int) $counts['maintenance']) ?></strong><span>Active Maintenance</span></div></article>
-        <article class="admin-metric metric-red"><div class="admin-metric-icon"><i class="bi bi-person-slash" aria-hidden="true"></i></div><div><strong><?= number_format((int) $counts['inactive']) ?></strong><span>Inactive accounts</span></div></article>
+        <article class="admin-metric"><div><strong><?= number_format((int) $counts['total']) ?></strong><span>Registered users</span></div></article>
+        <article class="admin-metric"><div><strong><?= number_format((int) $counts['staff']) ?></strong><span>Active Staff</span></div></article>
+        <article class="admin-metric"><div><strong><?= number_format((int) $counts['maintenance']) ?></strong><span>Active Maintenance</span></div></article>
+        <article class="admin-metric"><div><strong><?= number_format((int) $counts['inactive']) ?></strong><span>Inactive accounts</span></div></article>
     </section>
 
     <section class="admin-users-layout">
@@ -169,7 +169,7 @@ include __DIR__ . '/includes/header.php';
                 <label><span class="visually-hidden">Filter role</span><select class="form-select" name="role" aria-label="Filter by role"><option value="">All roles</option><?php foreach (['admin','staff','maintenance'] as $role): ?><option value="<?= e($role) ?>" <?= $roleFilter === $role ? 'selected' : '' ?>><?= e(ucfirst($role)) ?></option><?php endforeach; ?></select></label>
                 <label><span class="visually-hidden">Filter status</span><select class="form-select" name="status" aria-label="Filter by account status"><option value="">All statuses</option><option value="active" <?= $statusFilter === 'active' ? 'selected' : '' ?>>Active</option><option value="inactive" <?= $statusFilter === 'inactive' ? 'selected' : '' ?>>Inactive</option></select></label>
                 <button class="btn btn-primary" type="submit">Filter</button>
-                <?php if ($search !== '' || $roleFilter !== '' || $statusFilter !== ''): ?><a class="btn btn-outline-secondary" href="user_management.php" aria-label="Clear user filters"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></a><?php endif; ?>
+                <?php if ($search !== '' || $roleFilter !== '' || $statusFilter !== ''): ?><a class="btn btn-outline-secondary" href="user_management.php" aria-label="Clear user filters"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Clear</a><?php endif; ?>
             </form>
             <div class="table-responsive">
                 <table class="table table-hover align-middle admin-user-table">

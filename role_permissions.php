@@ -5,23 +5,20 @@ $roles = [
     'admin' => [
         'Manage user accounts and role assignment',
         'Add and update inventory and QR labels',
-        'Approve or reject borrowing requests',
-        'Review maintenance, reports, and activity logs',
-        'Configure system settings and backups',
+        'Review inventory, maintenance, reports, and activity logs',
+        'Configure system settings',
     ],
     'staff' => [
         'View inventory and scan equipment QR codes',
-        'Submit and review borrowing requests',
-        'Release approved equipment and process returns',
-        'Report damaged equipment and view transactions',
-        'Cannot approve or reject borrowing requests',
+        'Report damaged equipment and monitor inventory condition',
+        'View inventory reports and activity logs',
     ],
     'maintenance' => [
         'View active repair work and scan equipment QR codes',
         'Start and complete repair tasks',
         'Record repair descriptions and replaced parts',
         'Update own profile and password',
-        'Cannot manage inventory, users, or borrowing approvals',
+        'Cannot manage inventory or user accounts',
     ],
 ];
 include __DIR__ . '/includes/header.php';

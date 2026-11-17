@@ -34,6 +34,14 @@ CREATE TABLE IF NOT EXISTS inventory_items(
  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  INDEX idx_inventory_category(category),INDEX idx_inventory_location(location),INDEX idx_inventory_status(status)
 ) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS inventory_rooms(
+ id INT AUTO_INCREMENT PRIMARY KEY,room_name VARCHAR(150) NOT NULL UNIQUE,floor VARCHAR(80) NOT NULL DEFAULT 'Not specified',
+ created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+INSERT IGNORE INTO inventory_rooms(room_name,floor)
+SELECT DISTINCT TRIM(location),'Not specified'
+FROM inventory_items
+WHERE TRIM(location)<>'';
 CREATE TABLE IF NOT EXISTS equipment_requests(
  id BIGINT AUTO_INCREMENT PRIMARY KEY,requester_id INT NOT NULL,inventory_item_id INT NOT NULL,
  quantity INT UNSIGNED NOT NULL DEFAULT 1,purpose VARCHAR(255) NOT NULL,expected_return_date DATE NOT NULL,
@@ -83,10 +91,4 @@ CREATE TABLE IF NOT EXISTS system_settings(
  setting_key VARCHAR(64) PRIMARY KEY,setting_value TEXT NOT NULL,updated_by INT NULL,
  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
  FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB;
-CREATE TABLE IF NOT EXISTS system_backups(
- id BIGINT AUTO_INCREMENT PRIMARY KEY,file_name VARCHAR(255) NOT NULL UNIQUE,file_size BIGINT UNSIGNED NOT NULL,
- created_by INT NULL,created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,restored_by INT NULL,restored_at DATETIME NULL,
- FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL,FOREIGN KEY(restored_by) REFERENCES users(id) ON DELETE SET NULL,
- INDEX idx_system_backups_created(created_at)
 ) ENGINE=InnoDB;

@@ -24,7 +24,9 @@ If the earlier version of that migration was already applied and Maintenance was
 - Maintenance users can update their display name and password from My Profile.
 - Staff can submit equipment borrowing requests from `requests.php`; Admin reviews and approves or rejects them in `approval_requests.php`. Staff records QR-verified equipment releases and returns in the Staff transaction module. Staff availability and in-use totals change only when a release or return is recorded.
 - Admin and Staff can review filtered inventory and borrowing reports from `reports.php`, print them, or export the filtered tables as CSV.
-- Add equipment from `inventory.php`. Asset tags are generated as `CCST-INV-YYYY-NNNN` and remain fixed after creation.
+- Add one or more equipment records from `inventory.php` for the same room in one submission. Each row, such as a desktop, TV, or printer, gets its own `CCST-INV-YYYY-NNNN` asset tag and QR label; tags remain fixed after creation.
+- Manage room names and floors from `rooms.php`. Open a room to see the PCs, TVs, air conditioners, and other equipment assigned to it; use “Add equipment to this room” to add more inventory.
+- Existing equipment locations are kept and automatically added to the room directory with floor set to “Not specified”. Admins can set the correct floor from the room details.
 - Record equipment such as PCs, TVs, printers, projectors, furniture, and network devices. Include quantity, room, condition, status, custodian, acquisition date, and cost as available.
 - Print an item QR label from the QR button in the equipment list. The QR contains its asset tag.
 - Scan labels from `scan.php` using a camera on localhost/HTTPS, a USB scanner that types into the tag field, or manual entry.
@@ -39,4 +41,6 @@ For existing databases, apply `migrations/add_equipment_requests.sql` to create 
 
 For existing databases, apply `migrations/add_staff_equipment_transactions.sql` after the equipment request table exists. Staff pages also create the transaction table automatically when first opened.
 
-For existing databases, apply `migrations/add_system_settings.sql` and `migrations/add_system_backups.sql`. The Admin pages create these tables automatically when opened if they do not exist. Database backups are stored outside the public web root in a compressed PHP-generated snapshot; no shell backup command is required.
+The room-directory migration is included in `database.sql`, which creates the room directory and backfills existing equipment locations during import. For an existing database, re-import `database.sql` or run `migrations/add_inventory_rooms.sql` directly; the inventory page also creates and backfills the room directory automatically.
+
+For existing databases, apply `migrations/add_system_settings.sql`. The Admin pages create this table automatically when opened if it does not exist.

@@ -1,7 +1,6 @@
 <?php
-require_once __DIR__ . '/staff/functions.php';
+require_once __DIR__ . '/includes/functions.php';
 require_role(['admin']);
-ensure_staff_equipment_transactions_table($conn);
 $conn->query("CREATE TABLE IF NOT EXISTS notification_dismissals (
     user_id INT NOT NULL,
     notification_key VARCHAR(190) NOT NULL,
@@ -12,7 +11,6 @@ $conn->query("CREATE TABLE IF NOT EXISTS notification_dismissals (
 ) ENGINE=InnoDB");
 $userId = (int) current_user()['id'];
 $threshold = max(0, (int) get_system_setting($conn, 'low_stock_threshold', '2'));
-$borrowedSubquery = staff_borrowed_units_subquery();
 $notifications = [];
 $addNotification = static function (string $type, string $sourceId, string $title, string $details, string $createdAt, string $url, string $icon) use (&$notifications): void {
     $notifications[] = [
@@ -27,17 +25,7 @@ $addNotification = static function (string $type, string $sourceId, string $titl
     ];
 };
 
-$pending = $conn->query("SELECT r.id,r.created_at,r.updated_at,u.full_name,i.item_name,i.asset_tag FROM equipment_requests r JOIN users u ON u.id=r.requester_id JOIN inventory_items i ON i.id=r.inventory_item_id WHERE r.status='pending' ORDER BY r.created_at DESC LIMIT 50");
-while ($row = $pending->fetch_assoc()) {
-    $addNotification('pending', $row['id'] . ':' . $row['updated_at'], 'New borrowing request', $row['full_name'] . ' requested ' . $row['item_name'] . ' (' . $row['asset_tag'] . ').', $row['created_at'], 'approval_requests.php', 'bi-clipboard-check');
-}
-
-$overdue = $conn->query("SELECT r.id,r.expected_return_date,released.created_at,borrower.full_name AS borrower_name,i.item_name,i.asset_tag,DATEDIFF(CURDATE(),r.expected_return_date) AS overdue_days FROM equipment_transactions released JOIN equipment_requests r ON r.id=released.request_id JOIN users borrower ON borrower.id=r.requester_id JOIN inventory_items i ON i.id=released.inventory_item_id WHERE released.action='released' AND r.expected_return_date<CURDATE() AND r.status IN ('approved','returned') AND NOT EXISTS(SELECT 1 FROM equipment_transactions returned WHERE returned.request_id=r.id AND returned.action='returned') ORDER BY r.expected_return_date LIMIT 50");
-while ($row = $overdue->fetch_assoc()) {
-    $addNotification('overdue', $row['id'] . ':' . $row['overdue_days'], 'Equipment return overdue', $row['borrower_name'] . ' · ' . $row['item_name'] . ' · ' . $row['overdue_days'] . ' day(s) overdue.', $row['expected_return_date'] . ' 00:00:00', 'staff/overdue.php', 'bi-clock-history');
-}
-
-$lowStockQuery = $conn->prepare("SELECT i.id,i.asset_tag,i.item_name,i.quantity-GREATEST(COALESCE(b.borrowed,0),0) AS available_units,i.updated_at FROM inventory_items i LEFT JOIN $borrowedSubquery b ON b.inventory_item_id=i.id WHERE i.status='Available' AND i.condition_status NOT IN ('Needs Repair','Damaged') AND GREATEST(i.quantity-GREATEST(COALESCE(b.borrowed,0),0),0) BETWEEN 1 AND ? ORDER BY available_units,i.item_name LIMIT 50");
+$lowStockQuery = $conn->prepare("SELECT id,asset_tag,item_name,quantity AS available_units,updated_at FROM inventory_items WHERE status='Available' AND condition_status NOT IN ('Needs Repair','Damaged') AND quantity BETWEEN 1 AND ? ORDER BY quantity,item_name LIMIT 50");
 $lowStockQuery->bind_param('i', $threshold);
 $lowStockQuery->execute();
 $lowStock = $lowStockQuery->get_result();
@@ -121,7 +109,7 @@ if ($notifications) {
     $clearMarkerDelete->execute();
 }
 usort($notifications, static fn (array $left, array $right): int => $right['timestamp'] <=> $left['timestamp']);
-$counts = array_fill_keys(['pending','overdue','low_stock','damaged','maintenance','repair_completed','account'], 0);
+$counts = array_fill_keys(['low_stock','damaged','maintenance','repair_completed','account'], 0);
 foreach ($notifications as $notification) {
     $counts[$notification['type']]++;
 }
@@ -143,7 +131,7 @@ include __DIR__ . '/includes/header.php';
     </header>
 
     <section class="admin-notification-metrics" aria-label="Notification totals">
-        <?php foreach ([['pending','Pending requests','bi-clipboard-check'],['overdue','Overdue','bi-clock-history'],['low_stock','Low stock','bi-box-seam'],['damaged','Damaged','bi-exclamation-octagon'],['maintenance','Under maintenance','bi-wrench-adjustable'],['repair_completed','Completed repairs','bi-check-circle'],['account','Account activity','bi-person-gear']] as [$type,$label,$icon]): ?>
+        <?php foreach ([['low_stock','Low stock','bi-box-seam'],['damaged','Damaged','bi-exclamation-octagon'],['maintenance','Under maintenance','bi-wrench-adjustable'],['repair_completed','Completed repairs','bi-check-circle'],['account','Account activity','bi-person-gear']] as [$type,$label,$icon]): ?>
             <a class="admin-notification-metric <?= $filter === $type ? 'active' : '' ?>" href="<?= e(BASE_URL) ?>/notifications.php?type=<?= e($type) ?>">
                 <i class="bi <?= e($icon) ?>" aria-hidden="true"></i><span><?= e($label) ?></span><strong><?= number_format($counts[$type]) ?></strong>
             </a>
@@ -158,7 +146,7 @@ include __DIR__ . '/includes/header.php';
                     <div class="admin-notification-row notification-<?= e($notification['type']) ?>">
                         <span class="admin-notification-icon"><i class="bi <?= e($notification['icon']) ?>" aria-hidden="true"></i></span>
                         <a class="admin-notification-open" href="<?= e(BASE_URL . '/' . ltrim($notification['url'], '/')) ?>"><span class="admin-notification-copy"><strong><?= e($notification['title']) ?></strong><small><?= e($notification['details']) ?></small></span><time datetime="<?= e(date(DATE_ATOM, strtotime($notification['created_at']))) ?>"><?= e(date('M j, Y g:i A', strtotime($notification['created_at']))) ?></time></a>
-                        <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="notification_action" value="dismiss"><input type="hidden" name="notification_key" value="<?= e($notification['notification_key']) ?>"><button class="admin-notification-dismiss" type="submit" aria-label="Clear notification: <?= e($notification['title']) ?>" title="Clear notification"><i class="bi bi-x-lg" aria-hidden="true"></i></button></form>
+                        <form method="post"><input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>"><input type="hidden" name="notification_action" value="dismiss"><input type="hidden" name="notification_key" value="<?= e($notification['notification_key']) ?>"><button class="admin-notification-dismiss" type="submit" aria-label="Clear notification: <?= e($notification['title']) ?>" title="Clear notification">Clear</button></form>
                     </div>
                 <?php endforeach; ?>
             <?php else: ?>

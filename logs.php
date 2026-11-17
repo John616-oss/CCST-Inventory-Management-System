@@ -65,7 +65,7 @@ include __DIR__ . '/includes/header.php';
             <label><span>From</span><input class="form-control" name="from" type="date" value="<?= e($dateFrom) ?>"></label>
             <label><span>To</span><input class="form-control" name="to" type="date" value="<?= e($dateTo) ?>"></label>
             <button class="btn btn-primary" type="submit"><i class="bi bi-funnel" aria-hidden="true"></i> Filter</button>
-            <?php if ($search !== '' || $dateFrom !== '' || $dateTo !== ''): ?><a class="btn btn-outline-secondary" href="logs.php" aria-label="Clear log filters"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i></a><?php endif; ?>
+            <?php if ($search !== '' || $dateFrom !== '' || $dateTo !== ''): ?><a class="btn btn-outline-secondary" href="logs.php" aria-label="Clear log filters"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Clear</a><?php endif; ?>
         </form>
         <div class="admin-log-heading"><div><h2>Recorded activity</h2><p><?= number_format($logs->num_rows) ?> entries shown, up to 500</p></div></div>
         <div class="table-responsive">

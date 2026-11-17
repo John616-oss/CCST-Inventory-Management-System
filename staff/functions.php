@@ -23,16 +23,3 @@ function ensure_staff_equipment_transactions_table(mysqli $conn): void
         FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE RESTRICT
     ) ENGINE=InnoDB");
 }
-
-function staff_borrowed_units_subquery(): string
-{
-    return "(SELECT inventory_item_id,
-                   SUM(CASE action
-                       WHEN 'released' THEN CAST(quantity AS SIGNED)
-                       WHEN 'returned' THEN -CAST(quantity AS SIGNED)
-                       ELSE 0
-                   END) AS borrowed
-            FROM equipment_transactions
-            WHERE action IN ('released','returned')
-            GROUP BY inventory_item_id)";
-}

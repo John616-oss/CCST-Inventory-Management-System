@@ -65,6 +65,7 @@ function ensure_inventory_table(mysqli $conn): void {
         INDEX idx_maintenance_history_item(inventory_item_id,created_at),
         INDEX idx_maintenance_history_user(user_id)
     ) ENGINE=InnoDB");
+    ensure_rooms_table($conn);
     $historyColumns=$conn->query('SHOW COLUMNS FROM maintenance_history');
     $hasWorkDescription=false;
     $hasPartsReplaced=false;
@@ -74,6 +75,18 @@ function ensure_inventory_table(mysqli $conn): void {
     }
     if(!$hasWorkDescription)$conn->query('ALTER TABLE maintenance_history ADD COLUMN work_description TEXT NULL AFTER action');
     if(!$hasPartsReplaced)$conn->query('ALTER TABLE maintenance_history ADD COLUMN parts_replaced TEXT NULL AFTER work_description');
+}
+function ensure_rooms_table(mysqli $conn): void {
+    $conn->query("CREATE TABLE IF NOT EXISTS inventory_rooms (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        room_name VARCHAR(150) NOT NULL UNIQUE,
+        floor VARCHAR(80) NOT NULL DEFAULT 'Not specified',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB");
+    // Preserve existing room locations as rooms so all current equipment remains visible.
+    $conn->query("INSERT IGNORE INTO inventory_rooms(room_name,floor)
+        SELECT DISTINCT TRIM(location),'Not specified' FROM inventory_items WHERE TRIM(location)<>''");
 }
 function ensure_equipment_requests_table(mysqli $conn): void {
     ensure_inventory_table($conn);
@@ -107,20 +120,6 @@ function ensure_system_settings_table(mysqli $conn): void {
         FOREIGN KEY(updated_by) REFERENCES users(id) ON DELETE SET NULL
     ) ENGINE=InnoDB");
 }
-function ensure_system_backups_table(mysqli $conn): void {
-    $conn->query("CREATE TABLE IF NOT EXISTS system_backups (
-        id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        file_name VARCHAR(255) NOT NULL UNIQUE,
-        file_size BIGINT UNSIGNED NOT NULL,
-        created_by INT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        restored_by INT NULL,
-        restored_at DATETIME NULL,
-        FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL,
-        FOREIGN KEY(restored_by) REFERENCES users(id) ON DELETE SET NULL,
-        INDEX idx_system_backups_created(created_at)
-    ) ENGINE=InnoDB");
-}
 function get_system_setting(mysqli $conn, string $key, string $default=''): string {
     static $cache=[];
     if(array_key_exists($key,$cache))return $cache[$key];
@@ -151,6 +150,8 @@ function stmt_bind(mysqli_stmt $stmt, string $types, array $params): void {
 function current_user(): ?array { return $_SESSION['user'] ?? null; }
 function require_login(): void {
     static $validated=false;
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
     $user=current_user();
     if(!$user)redirect('login.php');
     if($validated)return;

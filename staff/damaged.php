@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $update->execute();
         log_action('REPORT DAMAGED EQUIPMENT', $item['asset_tag'] . ' · ' . $quantity . ' unit(s) · ' . $details);
         $conn->commit();
-        flash('Damage report recorded. The equipment is no longer available for borrowing.');
+        flash('Damage report recorded. The equipment is no longer marked as available.');
     } catch (DomainException $error) {
         try {
             $conn->rollback();
@@ -67,7 +67,7 @@ include __DIR__ . '/../includes/header.php';
         <div>
             <p class="dashboard-eyebrow">INVENTORY ALERT</p>
             <h1>Report Damaged Equipment</h1>
-            <p class="dashboard-subtitle">Record damage so the equipment is excluded from borrowing until it is cleared for use.</p>
+            <p class="dashboard-subtitle">Record damage so the equipment is marked unavailable until it is cleared for use.</p>
         </div>
     </header>
 
@@ -79,7 +79,7 @@ include __DIR__ . '/../includes/header.php';
                 <label class="form-label" for="damaged-asset-tag">Equipment asset tag</label>
                 <div class="input-group">
                     <input class="form-control" id="damaged-asset-tag" name="asset_tag" maxlength="40" placeholder="CCST-INV-2026-0001" required>
-                    <button class="btn btn-outline-primary" type="button" id="start-damage-scanner" aria-label="Scan equipment QR code"><i class="bi bi-qr-code-scan" aria-hidden="true"></i></button>
+                    <button class="btn btn-outline-primary" type="button" id="start-damage-scanner" aria-label="Scan equipment QR code">Scan QR</button>
                 </div>
             </div>
             <div class="col-lg-2 col-6">

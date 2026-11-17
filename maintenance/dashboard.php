@@ -66,10 +66,10 @@ include __DIR__ . '/../includes/header.php';
     </header>
 
     <section class="maintenance-metrics" aria-label="Maintenance summary">
-        <article class="maintenance-metric metric-equipment"><span class="maintenance-metric-icon"><i class="bi bi-journal-check" aria-hidden="true"></i></span><div><strong><?= number_format((int)$summary['total_activities']) ?></strong><span>Total maintenance activities</span></div></article>
-        <article class="maintenance-metric metric-complete"><span class="maintenance-metric-icon"><i class="bi bi-check2-circle" aria-hidden="true"></i></span><div><strong><?= number_format((int)$summary['completed_repairs']) ?></strong><span>Completed repairs</span></div></article>
-        <article class="maintenance-metric metric-active"><span class="maintenance-metric-icon"><i class="bi bi-wrench-adjustable" aria-hidden="true"></i></span><div><strong><?= number_format((int)$repairStats['in_progress_repairs']) ?></strong><span>Repairs in progress</span></div></article>
-        <article class="maintenance-metric metric-queue"><span class="maintenance-metric-icon"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span><div><strong><?= number_format((int)$repairStats['pending_repairs']) ?></strong><span>Pending repairs</span></div></article>
+        <article class="maintenance-metric"><div><strong><?= number_format((int)$summary['total_activities']) ?></strong><span>Total maintenance activities</span></div></article>
+        <article class="maintenance-metric"><div><strong><?= number_format((int)$summary['completed_repairs']) ?></strong><span>Completed repairs</span></div></article>
+        <article class="maintenance-metric"><div><strong><?= number_format((int)$repairStats['in_progress_repairs']) ?></strong><span>Repairs in progress</span></div></article>
+        <article class="maintenance-metric"><div><strong><?= number_format((int)$repairStats['pending_repairs']) ?></strong><span>Pending repairs</span></div></article>
     </section>
 
     <section class="maintenance-insights">
@@ -91,14 +91,14 @@ include __DIR__ . '/../includes/header.php';
 
     <section class="maintenance-workspace">
         <article class="panel maintenance-panel maintenance-queue-panel" id="repair-queue">
-            <div class="maintenance-panel-heading"><div><h2>Repair queue</h2><p><?= number_format($repairQueue->num_rows) ?> equipment item<?= $repairQueue->num_rows === 1 ? '' : 's' ?> shown</p></div><a href="<?= e(BASE_URL) ?>/scan.php" aria-label="Open QR scanner"><i class="bi bi-arrow-up-right" aria-hidden="true"></i></a></div>
+            <div class="maintenance-panel-heading"><div><h2>Repair queue</h2><p><?= number_format($repairQueue->num_rows) ?> equipment item<?= $repairQueue->num_rows === 1 ? '' : 's' ?> shown</p></div><a href="<?= e(BASE_URL) ?>/scan.php" aria-label="Open QR scanner">Open scanner</a></div>
             <div class="table-responsive"><table class="table align-middle maintenance-queue-table"><thead><tr><th>Equipment</th><th>Location</th><th>Condition</th><th>Status</th><th></th></tr></thead><tbody>
                 <?php if ($repairQueue->num_rows): while ($item = $repairQueue->fetch_assoc()): ?><tr>
                     <td><strong><?= e($item['item_name']) ?></strong><small><?= e($item['asset_tag']) ?></small></td>
                     <td><?= e($item['location']) ?></td>
                     <td><?= e($item['condition_status']) ?></td>
                     <td><span class="maintenance-status <?= $item['status'] === 'Under Repair' ? 'status-in-repair' : 'status-needs-attention' ?>"><?= e($item['status'] === 'Under Repair' ? 'In repair' : 'Needs attention') ?></span></td>
-                    <td><a class="maintenance-row-action" href="<?= e(BASE_URL) ?>/scan.php?tag=<?= e(rawurlencode($item['asset_tag'])) ?>" aria-label="Open repair for <?= e($item['item_name']) ?>" title="Open repair"><i class="bi bi-arrow-right" aria-hidden="true"></i></a></td>
+                    <td><a class="maintenance-row-action" href="<?= e(BASE_URL) ?>/scan.php?tag=<?= e(rawurlencode($item['asset_tag'])) ?>" aria-label="Open repair for <?= e($item['item_name']) ?>" title="Open repair">Open</a></td>
                 </tr><?php endwhile; else: ?><tr><td class="maintenance-empty" colspan="5"><i class="bi bi-check2-circle" aria-hidden="true"></i><strong>All clear</strong><span>No equipment currently needs repair.</span></td></tr><?php endif; ?>
             </tbody></table></div>
         </article>
@@ -116,7 +116,7 @@ include __DIR__ . '/../includes/header.php';
         </aside>
     </section>
     <section class="panel maintenance-panel maintenance-recent-records">
-        <div class="maintenance-panel-heading"><div><h2>Recent maintenance records</h2><p>Latest recorded reports and repair actions</p></div><a href="<?= e(BASE_URL) ?>/maintenance_records.php">View all <i class="bi bi-arrow-right" aria-hidden="true"></i></a></div>
+        <div class="maintenance-panel-heading"><div><h2>Recent maintenance records</h2><p>Latest recorded reports and repair actions</p></div><a href="<?= e(BASE_URL) ?>/maintenance_records.php">View all</a></div>
         <div class="table-responsive"><table class="table align-middle maintenance-queue-table"><thead><tr><th>Date and time</th><th>Equipment</th><th>Reported issue</th><th>Repair status</th><th>Technician</th></tr></thead><tbody>
             <?php if ($recentRecords->num_rows): while ($record = $recentRecords->fetch_assoc()): $recordStatus = $record['status'] ?? ($record['action'] === 'completed' ? 'Completed' : ($record['action'] === 'started' ? 'In Progress' : ucfirst(str_replace('_', ' ', $record['action'])))); ?>
                 <tr><td><?= e(date('M j, Y g:i A', strtotime($record['created_at']))) ?></td><td><strong><?= e($record['item_name']) ?></strong><small><?= e($record['asset_tag']) ?></small></td><td><?= e($record['issue_description'] ?: ($record['work_description'] ?: 'Legacy maintenance activity')) ?></td><td><span class="maintenance-record-status <?= $recordStatus === 'Completed' ? 'status-completed' : ($recordStatus === 'Pending' ? 'status-pending' : 'status-in-progress') ?>"><?= e($recordStatus) ?></span></td><td><?= e($record['technician']) ?></td></tr>

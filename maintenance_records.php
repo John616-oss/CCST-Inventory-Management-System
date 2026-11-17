@@ -167,7 +167,7 @@ include __DIR__ . '/includes/header.php';
         </article>
         <article class="maintenance-records-metric metric-damaged">
             <span class="maintenance-records-metric-icon"><i class="bi bi-exclamation-octagon" aria-hidden="true"></i></span>
-            <div><span>Damaged equipment</span><strong><?= number_format((int) $repairStats['damaged_equipment']) ?></strong><small>Excluded from borrowing</small></div>
+            <div><span>Damaged equipment</span><strong><?= number_format((int) $repairStats['damaged_equipment']) ?></strong><small>Marked unavailable</small></div>
         </article>
         <?php if ($userRole === 'admin'): ?><article class="maintenance-records-metric metric-accounts">
             <span class="maintenance-records-metric-icon"><i class="bi bi-people" aria-hidden="true"></i></span>
