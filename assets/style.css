@@ -1,7 +1,16 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap");
+:root {
+  --ccst-navy: #12345a;
+  --ccst-ink: #26364b;
+  --ccst-muted: #64748b;
+  --ccst-wash: #f5f7fa;
+  --ccst-white: #fff;
+  --ccst-highlight: #eaf2ff;
+  --ccst-line: #dce3ec;
+}
 body {
-  background: #f2f6fc;
-  color: #14243a;
+  background: var(--ccst-wash);
+  color: var(--ccst-ink);
   font-family: "DM Sans", sans-serif;
   font-size: 16px;
   line-height: 1.5;
@@ -14,7 +23,7 @@ body.login-page .login-heading h2 {
   font-family: "DM Sans", sans-serif !important;
 }
 .topbar {
-  background: #082d55;
+  background: var(--ccst-navy);
   min-height: 58px;
 }
 .brand-logo {
@@ -31,21 +40,21 @@ body.login-page .login-heading h2 {
 }
 .sidebar {
   width: 225px;
-  background: #082d55;
+  background: var(--ccst-navy);
   padding: 18px 12px;
   flex-shrink: 0;
 }
 .sidebar a {
   display: block;
-  color: #d9e7f7;
+  color: var(--ccst-highlight);
   text-decoration: none;
   padding: 11px 13px;
   border-radius: 8px;
   margin: 3px 0;
 }
 .sidebar a:hover {
-  background: #1265c7;
-  color: white;
+  background: var(--ccst-highlight);
+  color: var(--ccst-navy);
 }
 .content {
   padding: 26px;
@@ -54,8 +63,8 @@ body.login-page .login-heading h2 {
 }
 .panel,
 .stat {
-  background: white;
-  border: 1px solid #e3eaf3;
+  background: var(--ccst-white);
+  border: 1px solid var(--ccst-line);
   border-radius: 12px;
   padding: 18px;
   box-shadow: 0 4px 18px #17365d0a;
@@ -69,12 +78,31 @@ body.login-page .login-heading h2 {
   font-size: 13px;
 }
 .btn-primary {
-  background: #0875e8;
-  border-color: #0875e8;
+  background: var(--ccst-navy);
+  border-color: var(--ccst-navy);
+}
+.btn-primary:hover,
+.btn-primary:focus {
+  background: #0e2b4d;
+  border-color: #0e2b4d;
+  color: #fff;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--ccst-navy);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--ccst-highlight);
+}
+.form-check-input:checked {
+  border-color: var(--ccst-navy);
+  background-color: var(--ccst-navy);
+}
+.form-check-input:focus {
+  border-color: var(--ccst-navy);
+  box-shadow: 0 0 0 3px var(--ccst-highlight);
 }
 .table thead th {
-  background: #f2f6fc;
-  color: #31445e;
+  background: var(--ccst-highlight);
+  color: var(--ccst-ink);
   font-size: 13px;
 }
 .alert {
@@ -164,4 +192,44 @@ body.login-page .login-heading h2 {
   .id-card {
     box-shadow: none;
   }
+}
+
+body {
+  background: var(--ccst-wash);
+  color: var(--ccst-ink);
+  font-family: "DM Sans", sans-serif;
+}
+.panel,
+.stat,
+.id-card {
+  border-color: var(--ccst-line);
+  border-radius: 8px;
+  box-shadow: none;
+}
+.topbar,
+.sidebar {
+  background: var(--ccst-navy);
+}
+.btn {
+  border-radius: 6px;
+  box-shadow: none;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+.btn:hover {
+  transform: none;
+}
+.btn-primary {
+  background: var(--ccst-navy);
+  border-color: var(--ccst-navy);
+}
+.form-control,
+.form-select {
+  border-color: var(--ccst-line);
+  border-radius: 6px;
+  background-color: var(--ccst-white);
+}
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--ccst-navy);
+  box-shadow: 0 0 0 3px var(--ccst-highlight);
 }

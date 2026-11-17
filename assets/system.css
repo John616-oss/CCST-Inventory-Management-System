@@ -1,17 +1,20 @@
 :root {
-  --ccst-ink: #172c3c;
-  --ccst-muted: #667985;
-  --ccst-navy: #0a3c65;
-  --ccst-navy-deep: #082e50;
+  --ccst-ink: #26364b;
+  --ccst-muted: #64748b;
+  --ccst-navy: #12345a;
+  --ccst-navy-deep: #12345a;
   --ccst-teal: #087b78;
   --ccst-teal-dark: #066764;
-  --ccst-line: #dce5e4;
-  --ccst-wash: #edf3f2;
+  --ccst-primary: #12345a;
+  --ccst-primary-hover: #0e2b4d;
+  --ccst-line: #dce3ec;
+  --ccst-wash: #f5f7fa;
   --ccst-white: #fff;
+  --ccst-highlight: #eaf2ff;
 }
 body {
   min-height: 100vh;
-  background: linear-gradient(135deg, #edf2f2 0%, #e7eeee 100%);
+  background: var(--ccst-wash);
   color: var(--ccst-ink);
   font-family: "DM Sans", sans-serif;
 }
@@ -24,7 +27,7 @@ body {
   min-height: 68px;
   padding: 10px 24px !important;
   background: var(--ccst-navy);
-  box-shadow: 0 3px 14px #082e5018;
+  box-shadow: none;
 }
 .topbar .navbar-brand {
   gap: 10px !important;
@@ -67,12 +70,8 @@ body {
   width: auto;
   min-width: 0;
   padding: 22px 14px;
-  background: linear-gradient(
-    180deg,
-    var(--ccst-navy) 0%,
-    var(--ccst-navy-deep) 100%
-  );
-  border-right: 1px solid #062844;
+  background: var(--ccst-navy);
+  border-right: 1px solid var(--ccst-navy);
 }
 .sidebar a {
   display: flex;
@@ -83,7 +82,7 @@ body {
   padding: 10px 12px;
   border: 1px solid transparent;
   border-radius: 6px;
-  color: #d4e4eb;
+  color: var(--ccst-highlight);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
@@ -99,22 +98,22 @@ body {
   flex: 0 0 18px;
   align-items: center;
   justify-content: center;
-  color: #9bc9c5;
+  color: #bfd0e6;
   font-size: 15px;
   line-height: 1;
 }
 .sidebar a:hover,
 .sidebar a:focus-visible {
-  border-color: #ffffff20;
-  background: #ffffff14;
-  color: #fff;
+  border-color: var(--ccst-highlight);
+  background: var(--ccst-highlight);
+  color: var(--ccst-navy);
 }
 .sidebar a:hover .nav-icon,
 .sidebar a:focus-visible .nav-icon {
-  color: #fff;
+  color: var(--ccst-navy);
 }
 .sidebar a:focus-visible {
-  outline: 2px solid #74cbc4;
+  outline: 2px solid var(--ccst-highlight);
   outline-offset: 2px;
 }
 .content {
@@ -164,7 +163,7 @@ body {
   right: 0;
   left: 0;
   height: 3px;
-  background: var(--ccst-teal);
+  background: var(--ccst-navy);
   content: "";
 }
 .stat strong {
@@ -195,22 +194,22 @@ body {
   transform: translateY(-1px);
 }
 .btn-primary {
-  background: var(--ccst-teal);
-  border-color: var(--ccst-teal);
+  background: var(--ccst-primary);
+  border-color: var(--ccst-primary);
 }
 .btn-primary:hover,
 .btn-primary:focus {
-  background: var(--ccst-teal-dark);
-  border-color: var(--ccst-teal-dark);
+  background: var(--ccst-primary-hover);
+  border-color: var(--ccst-primary-hover);
 }
 .btn-outline-primary {
-  color: var(--ccst-teal);
-  border-color: #91bfbd;
+  color: var(--ccst-primary);
+  border-color: var(--ccst-primary);
 }
 .btn-outline-primary:hover,
 .btn-outline-primary:focus {
-  background: var(--ccst-teal);
-  border-color: var(--ccst-teal);
+  background: var(--ccst-primary);
+  border-color: var(--ccst-primary);
   color: #fff;
 }
 .btn-success {
@@ -238,8 +237,8 @@ body {
 }
 .form-control:focus,
 .form-select:focus {
-  border-color: #168b88;
-  box-shadow: 0 0 0 3px #168b881a;
+  border-color: var(--ccst-navy);
+  box-shadow: 0 0 0 3px var(--ccst-highlight);
 }
 .form-control::placeholder {
   color: #8b9ba2;
@@ -358,7 +357,7 @@ body {
 }
 .dashboard-eyebrow {
   margin: 0 0 5px;
-  color: var(--ccst-teal);
+  color: var(--ccst-primary);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.4px;
@@ -520,7 +519,7 @@ body {
 }
 .dashboard-view-all {
   flex: none;
-  color: var(--ccst-teal);
+  color: var(--ccst-primary);
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
@@ -1123,7 +1122,7 @@ body {
   text-decoration: none;
 }
 .inventory-item-link:hover {
-  color: var(--ccst-teal);
+  color: var(--ccst-primary);
   text-decoration: underline;
 }
 .inventory-tag {
@@ -1861,16 +1860,16 @@ body.admin-shell {
   font-weight: 600;
 }
 .metric-blue {
-  background: linear-gradient(115deg, #2585eb, #1261c2);
+  background: #fff;
 }
 .metric-green {
-  background: linear-gradient(115deg, #27a76b, #168052);
+  background: #fff;
 }
 .metric-amber {
-  background: linear-gradient(115deg, #f3aa22, #e98612);
+  background: #fff;
 }
 .metric-red {
-  background: linear-gradient(115deg, #df5a60, #ca3f4a);
+  background: #fff;
 }
 .admin-analysis-grid,
 .admin-workspace-grid,
@@ -2753,7 +2752,7 @@ body.admin-shell {
   margin-bottom: 14px;
   padding: 14px 20px;
   border-radius: 8px;
-  background: linear-gradient(105deg, #0d3d8e 0%, #075bc6 62%, #1677e4 100%);
+  background: #fff;
   color: #fff;
   box-shadow: 0 6px 15px #124b9b25;
 }
@@ -3595,13 +3594,22 @@ body {
 }
 .maintenance-shell .app {
   display: flex;
+  min-height: calc(100vh - 64px);
+  margin-top: 64px;
 }
 .maintenance-shell .sidebar {
+  position: fixed;
+  top: 64px;
+  bottom: 0;
+  z-index: 21;
   display: flex;
   width: 232px;
-  min-height: calc(100vh - 58px);
+  height: calc(100vh - 64px);
+  min-height: 0;
   flex: none;
   flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: #142b50;
   padding: 18px 12px;
 }
@@ -3636,6 +3644,7 @@ body {
 }
 .maintenance-shell .content {
   min-width: 0;
+  margin-left: 232px;
   background: #f4f7fe;
 }
 .maintenance-page {
@@ -3859,11 +3868,13 @@ body {
 @media (max-width: 900px) {
   .maintenance-shell .app {
     display: block;
-    margin-top: 58px;
+    margin-top: 64px;
   }
   .maintenance-shell .sidebar {
+    position: static;
     display: grid;
     width: 100%;
+    height: auto;
     min-height: 0;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 2px 6px;
@@ -3874,6 +3885,7 @@ body {
   }
   .maintenance-shell .content {
     width: 100%;
+    margin-left: 0;
   }
 }
 @media (max-width: 760px) {
@@ -3913,6 +3925,7 @@ body {
   }
   .maintenance-shell .app {
     display: block;
+    margin-top: 58px;
   }
   .maintenance-shell .sidebar {
     position: fixed;
@@ -3997,7 +4010,7 @@ body {
   padding: 24px clamp(20px, 3vw, 36px);
   border: 1px solid #0a3c65;
   border-radius: 8px;
-  background: linear-gradient(112deg, #082e50 0%, #0a3c65 60%, #087b78 100%);
+  background: #fff;
   color: #fff;
 }
 .maintenance-hero::after {
@@ -4162,11 +4175,11 @@ body {
   font-size: 11px;
 }
 .maintenance-panel-heading > i {
-  color: var(--ccst-teal);
+  color: var(--ccst-primary);
   font-size: 18px;
 }
 .maintenance-panel-heading > a {
-  color: var(--ccst-teal);
+  color: var(--ccst-primary);
   display: inline-flex;
   width: auto;
   min-width: 30px;
@@ -4260,7 +4273,7 @@ body {
   gap: 12px;
   padding: 5px 8px 0;
   border-bottom: 1px solid var(--ccst-line);
-  background: repeating-linear-gradient(to bottom, transparent 0, transparent 44px, #dce5e477 45px, transparent 46px);
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 44px, #dce3ec77 45px, transparent 46px);
 }
 .maintenance-bar-column {
   display: grid;
@@ -4287,7 +4300,7 @@ body {
   width: 100%;
   height: var(--bar-height);
   border-radius: 5px 5px 0 0;
-  background: linear-gradient(180deg, #168b88, var(--ccst-navy));
+  background: var(--ccst-navy);
   transition: height 0.3s ease;
 }
 .maintenance-bar-label {
@@ -4361,14 +4374,14 @@ body {
   padding: 0 8px;
   border: 1px solid var(--ccst-line);
   border-radius: 5px;
-  color: var(--ccst-teal);
+  color: var(--ccst-primary);
   font-size: 10px;
   font-weight: 600;
   text-decoration: none;
 }
 .maintenance-row-action:hover {
-  border-color: var(--ccst-teal);
-  background: #e4f4f1;
+  border-color: var(--ccst-primary);
+  background: var(--ccst-highlight);
 }
 .maintenance-empty {
   padding: 27px 12px !important;
@@ -4382,7 +4395,7 @@ body {
 }
 .maintenance-empty i {
   margin-bottom: 5px;
-  color: var(--ccst-teal);
+  color: var(--ccst-primary);
   font-size: 22px;
 }
 .maintenance-empty strong {
@@ -4409,10 +4422,10 @@ body {
   justify-content: center;
   flex-direction: column;
   gap: 6px;
-  border: 1px solid #dce5e4;
+  border: 1px solid var(--ccst-line);
   border-radius: 6px;
-  background: #f4f8f7;
-  color: #344f5c;
+  background: var(--ccst-highlight);
+  color: var(--ccst-ink);
   font-size: 10px;
   font-weight: 700;
   text-align: center;
@@ -4421,10 +4434,10 @@ body {
 }
 .maintenance-quick-actions a:hover {
   transform: translateY(-1px);
-  background: #e4f4f1;
+  background: #d7e6fb;
 }
 .maintenance-quick-actions a i {
-  color: var(--ccst-teal);
+  color: var(--ccst-primary);
   font-size: 20px;
 }
 .maintenance-activity-list {
@@ -4443,8 +4456,8 @@ body {
   flex: none;
   place-items: center;
   border-radius: 50%;
-  background: #e4f4f1;
-  color: var(--ccst-teal);
+  background: var(--ccst-highlight);
+  color: var(--ccst-primary);
   font-size: 12px;
 }
 .maintenance-activity-icon.activity-complete {
@@ -4492,16 +4505,11 @@ body {
   padding: 22px 28px;
   border: 1px solid #12376f;
   border-radius: 8px;
-  background: linear-gradient(110deg, #071b3d 0%, #0c3472 62%, #087b9c 100%);
+  background: #fff;
   color: #fff;
 }
 .maintenance-records-hero::after {
-  position: absolute;
-  inset: 0 0 0 auto;
-  width: 35%;
-  background: repeating-linear-gradient(135deg, transparent 0 17px, #ffffff12 18px 20px);
-  content: "";
-  pointer-events: none;
+  display: none;
 }
 .maintenance-records-hero-copy {
   position: relative;
@@ -4562,28 +4570,28 @@ body {
   padding: 14px 18px;
   border: 1px solid #d5e0f0;
   border-radius: 8px;
-  background: linear-gradient(115deg, #fff 58%, #edf4ff);
+  background: #fff;
   box-shadow: 0 4px 12px #112c4e0a;
 }
 .maintenance-records-metric.metric-completed {
-  border-color: #b7e5d1;
-  background: linear-gradient(115deg, #fff 58%, #e8f8ef);
+  border-color: #dce3ec;
+  background: #fff;
 }
 .maintenance-records-metric.metric-pending {
-  border-color: #f0d7aa;
-  background: linear-gradient(115deg, #fff 58%, #fff5e3);
+  border-color: #dce3ec;
+  background: #fff;
 }
 .maintenance-records-metric.metric-ongoing {
-  border-color: #c8d9f3;
-  background: linear-gradient(115deg, #fff 58%, #eef4ff);
+  border-color: #dce3ec;
+  background: #fff;
 }
 .maintenance-records-metric.metric-damaged {
-  border-color: #efc3c6;
-  background: linear-gradient(115deg, #fff 58%, #fff0f0);
+  border-color: #dce3ec;
+  background: #fff;
 }
 .maintenance-records-metric.metric-accounts {
-  border-color: #f2d3a6;
-  background: linear-gradient(115deg, #fff 58%, #fff4e3);
+  border-color: #dce3ec;
+  background: #fff;
 }
 .maintenance-records-metric-icon {
   display: grid;
@@ -6040,13 +6048,19 @@ button .bi,
 }
 
 .rooms-page { display: grid; gap: 18px; }
-.rooms-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 13px; }
-.rooms-card { display: grid; align-content: start; gap: 7px; padding: 17px; }
+.rooms-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 13px; }
+.rooms-card { display: flex; flex-direction: column; gap: 7px; padding: 17px; }
 .rooms-card-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 10px; background: #eaf2ff; color: #174d8a; font-size: 11px; font-weight: 700; }
 .rooms-card .rooms-floor-label { margin: 5px 0 0; color: #52657b; font-size: 12px; font-weight: 600; }
 .rooms-card h2 { margin: 0; color: #0b2d50; font-size: 17px; }
 .rooms-card > p:not(.rooms-floor-label) { margin: 0 0 5px; color: #52657b; font-size: 12px; }
-.rooms-card .btn { justify-self: start; }
+.rooms-card .btn { align-self: flex-start; margin-top: auto; }
+@media (max-width: 760px) {
+  .rooms-card-grid { grid-template-columns: minmax(0, 1fr); }
+  .rooms-card { min-width: 0; }
+  .rooms-card h2,
+  .rooms-card > p { overflow-wrap: anywhere; }
+}
 .rooms-detail-panel, .rooms-add-panel { padding: 18px; }
 .rooms-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
 .rooms-detail-heading h2 { margin: 8px 0 3px; color: #0b2d50; font-size: 20px; }
@@ -6062,6 +6076,525 @@ button .bi,
 .rooms-add-panel h2 { margin: 0 0 3px; color: #0b2d50; font-size: 17px; }
 .rooms-add-panel p { margin: 0; color: #52657b; font-size: 12px; }
 .rooms-add-form { display: flex; align-items: end; gap: 11px; margin-top: 15px; }
+
+/* Minimalist visual theme: preserve layouts and status colors, simplify surfaces. */
+:root {
+  --ccst-ink: #26364b;
+  --ccst-muted: #64748b;
+  --ccst-navy: #12345a;
+  --ccst-navy-deep: #12345a;
+  --ccst-teal: #087b78;
+  --ccst-teal-dark: #066764;
+  --ccst-primary: #12345a;
+  --ccst-primary-hover: #0e2b4d;
+  --ccst-line: #dce3ec;
+  --ccst-wash: #f5f7fa;
+  --ccst-white: #fff;
+  --ccst-highlight: #eaf2ff;
+}
+
+body.admin-shell,
+body.maintenance-shell {
+  background: var(--ccst-wash) !important;
+  color: var(--ccst-ink);
+}
+
+.admin-shell .topbar,
+.maintenance-shell .topbar {
+  min-height: 64px;
+  border-bottom: 1px solid #0e2b4d;
+  background: var(--ccst-navy);
+  box-shadow: none;
+}
+
+.admin-shell .topbar .navbar-brand,
+.maintenance-shell .topbar .navbar-brand {
+  color: #fff;
+}
+
+.admin-shell .brand-system-name,
+.maintenance-shell .brand-system-name {
+  color: var(--ccst-highlight);
+}
+
+.admin-shell .app-topbar-role,
+.maintenance-shell .topbar > div {
+  border-color: #ffffff55;
+  color: var(--ccst-highlight) !important;
+}
+
+.admin-shell .sidebar,
+.maintenance-shell .sidebar {
+  background: var(--ccst-navy);
+  border-right: 1px solid var(--ccst-navy);
+  box-shadow: none;
+}
+
+.admin-shell .sidebar > a:not(.admin-sidebar-brand),
+.maintenance-shell .sidebar a {
+  border-color: transparent;
+  color: var(--ccst-highlight);
+}
+
+.admin-shell .sidebar > a:not(.admin-sidebar-brand) .nav-icon,
+.maintenance-shell .sidebar .nav-icon {
+  color: #bfd0e6;
+}
+
+.admin-shell .sidebar > a:not(.admin-sidebar-brand):hover,
+.admin-shell .sidebar > a.admin-nav-active,
+.maintenance-shell .sidebar a:hover,
+.maintenance-shell .sidebar a.admin-nav-active {
+  border-color: var(--ccst-highlight);
+  background: var(--ccst-highlight);
+  color: var(--ccst-navy);
+}
+
+.admin-shell .sidebar > a:not(.admin-sidebar-brand):hover .nav-icon,
+.admin-shell .sidebar > a.admin-nav-active .nav-icon,
+.maintenance-shell .sidebar a:hover .nav-icon,
+.maintenance-shell .sidebar a.admin-nav-active .nav-icon {
+  color: var(--ccst-navy);
+}
+
+.admin-shell .admin-sidebar-section-label,
+.admin-shell .staff-sidebar-section-label,
+.maintenance-shell .maintenance-sidebar-section-label {
+  color: #bfd0e6;
+}
+
+.admin-sidebar-account {
+  border-color: #ffffff55;
+  color: #fff;
+}
+
+.admin-user-copy strong,
+.admin-user-copy small {
+  color: var(--ccst-highlight);
+}
+
+.admin-shell .content,
+.maintenance-shell .content,
+.reports-page {
+  background: var(--ccst-wash);
+  color: var(--ccst-ink);
+}
+
+.admin-shell .content :where(h1, h2, h3, h4, h5),
+.maintenance-shell .content :where(h1, h2, h3, h4, h5),
+.reports-page :where(h1, h2, h3, h4, h5) {
+  color: var(--ccst-ink);
+}
+
+.admin-shell .panel,
+.admin-shell .stat,
+.admin-shell .admin-panel,
+.admin-shell .maintenance-panel,
+.admin-shell .rooms-card,
+.maintenance-shell .panel,
+.maintenance-shell .stat,
+.maintenance-shell .maintenance-panel {
+  border: 1px solid var(--ccst-line);
+  border-radius: 8px;
+  background: var(--ccst-white);
+  box-shadow: none;
+}
+
+.admin-shell .admin-metric,
+.admin-shell .maintenance-records-metric,
+.maintenance-shell .maintenance-metric,
+.maintenance-shell .maintenance-records-metric {
+  border: 1px solid var(--ccst-line);
+  border-radius: 8px;
+  background: var(--ccst-white);
+  background-image: none;
+  color: var(--ccst-ink);
+  box-shadow: none;
+}
+
+.admin-shell .admin-metric strong,
+.admin-shell .admin-metric span,
+.admin-shell .maintenance-records-metric strong,
+.admin-shell .maintenance-records-metric > div > span,
+.maintenance-shell .maintenance-metric strong,
+.maintenance-shell .maintenance-metric > div > span,
+.maintenance-shell .maintenance-records-metric strong,
+.maintenance-shell .maintenance-records-metric > div > span {
+  color: var(--ccst-ink);
+}
+
+.admin-shell .admin-metric-icon,
+.admin-shell .dashboard-stat-icon,
+.admin-shell .maintenance-records-metric-icon,
+.maintenance-shell .maintenance-metric-icon,
+.maintenance-shell .maintenance-records-metric-icon,
+.rooms-card-icon {
+  border-radius: 7px;
+  background: var(--ccst-highlight);
+  color: var(--ccst-navy);
+  box-shadow: none;
+}
+
+.admin-shell .metric-blue,
+.admin-shell .metric-green,
+.admin-shell .metric-amber,
+.admin-shell .metric-red {
+  border-color: var(--ccst-line);
+  background: var(--ccst-white);
+  background-image: none;
+  color: var(--ccst-ink);
+  box-shadow: none;
+}
+
+.admin-shell .metric-blue strong,
+.admin-shell .metric-green strong,
+.admin-shell .metric-amber strong,
+.admin-shell .metric-red strong,
+.admin-shell .metric-blue span,
+.admin-shell .metric-green span,
+.admin-shell .metric-amber span,
+.admin-shell .metric-red span {
+  color: var(--ccst-ink);
+}
+
+.admin-shell .approval-hero,
+.admin-shell .maintenance-records-hero,
+.maintenance-shell .maintenance-hero,
+.maintenance-shell .maintenance-records-hero {
+  border: 1px solid var(--ccst-line);
+  border-radius: 8px;
+  background: var(--ccst-white);
+  background-image: none;
+  color: var(--ccst-ink);
+  box-shadow: none;
+}
+
+.admin-shell .approval-hero :where(h1, h2, p, span),
+.admin-shell .maintenance-records-hero :where(h1, p),
+.maintenance-shell .maintenance-hero :where(h1, p),
+.maintenance-shell .maintenance-records-hero :where(h1, p) {
+  color: var(--ccst-ink);
+}
+
+.admin-shell .approval-hero::after,
+.admin-shell .maintenance-records-hero::after,
+.maintenance-shell .maintenance-hero::after,
+.maintenance-shell .maintenance-records-hero::after {
+  display: none;
+}
+
+.maintenance-shell .maintenance-hero-eyebrow,
+.admin-shell .maintenance-records-eyebrow,
+.maintenance-shell .maintenance-records-eyebrow {
+  color: var(--ccst-muted);
+}
+
+.maintenance-shell .maintenance-hero-link {
+  border-color: var(--ccst-line);
+  color: var(--ccst-primary);
+}
+
+.maintenance-shell .maintenance-hero-copy > p:not(.maintenance-hero-eyebrow) {
+  color: var(--ccst-muted);
+}
+
+.maintenance-shell .maintenance-hero-link:hover,
+.maintenance-shell .maintenance-hero-link:focus-visible {
+  border-color: var(--ccst-navy);
+  background: var(--ccst-highlight);
+  color: var(--ccst-navy);
+}
+
+.maintenance-shell .maintenance-hero-mark,
+.admin-shell .maintenance-records-hero-art,
+.maintenance-shell .maintenance-records-hero-art {
+  color: #687482;
+  text-shadow: none;
+}
+
+.admin-shell .maintenance-records-hero-art .bi-wrench-adjustable {
+  color: #526170;
+  text-shadow: none;
+}
+
+.admin-shell .maintenance-records-hero-art .bi-gear-wide-connected {
+  color: var(--ccst-primary);
+}
+
+.admin-shell .maintenance-records-hero-copy > p:last-child {
+  color: var(--ccst-muted);
+}
+
+.admin-shell .table-responsive,
+.maintenance-shell .table-responsive {
+  border-color: var(--ccst-line);
+  border-radius: 7px;
+}
+
+.admin-shell .table thead th,
+.maintenance-shell .table thead th {
+  --bs-table-bg: var(--ccst-highlight);
+  --bs-table-bg-state: var(--ccst-highlight);
+  border-color: var(--ccst-line);
+  background: var(--ccst-highlight);
+  color: var(--ccst-ink);
+}
+
+.admin-shell .table tbody td,
+.maintenance-shell .table tbody td {
+  border-color: var(--ccst-line);
+  color: var(--ccst-ink);
+}
+
+.admin-shell .table-hover > tbody > tr:hover > *,
+.maintenance-shell .table-hover > tbody > tr:hover > * {
+  --bs-table-bg-state: var(--ccst-highlight);
+  --bs-table-color-state: var(--ccst-ink);
+  background-color: var(--ccst-highlight);
+}
+
+.admin-shell .form-control,
+.admin-shell .form-select,
+.maintenance-shell .form-control,
+.maintenance-shell .form-select {
+  border-color: var(--ccst-line);
+  border-radius: 6px;
+  background-color: var(--ccst-white);
+  color: var(--ccst-ink);
+}
+
+.admin-shell .form-control:focus,
+.admin-shell .form-select:focus,
+.maintenance-shell .form-control:focus,
+.maintenance-shell .form-select:focus {
+  border-color: var(--ccst-navy);
+  box-shadow: 0 0 0 3px var(--ccst-highlight);
+}
+
+.admin-shell .form-check-input:checked,
+.maintenance-shell .form-check-input:checked {
+  border-color: var(--ccst-navy);
+  background-color: var(--ccst-navy);
+}
+
+.admin-shell .form-check-input:focus,
+.maintenance-shell .form-check-input:focus {
+  border-color: var(--ccst-navy);
+  box-shadow: 0 0 0 3px var(--ccst-highlight);
+}
+
+.admin-shell .btn,
+.maintenance-shell .btn {
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.admin-shell .btn:hover,
+.maintenance-shell .btn:hover {
+  transform: none;
+}
+
+.admin-shell .btn-primary,
+.maintenance-shell .btn-primary {
+  border-color: var(--ccst-navy);
+  background: var(--ccst-navy);
+}
+
+.admin-shell .btn-primary:hover,
+.admin-shell .btn-primary:focus,
+.maintenance-shell .btn-primary:hover,
+.maintenance-shell .btn-primary:focus {
+  border-color: var(--ccst-primary-hover);
+  background: var(--ccst-primary-hover);
+}
+
+.admin-shell .btn-outline-primary,
+.maintenance-shell .btn-outline-primary {
+  border-color: var(--ccst-navy);
+  color: var(--ccst-navy);
+}
+
+.admin-shell .btn-outline-primary:hover,
+.maintenance-shell .btn-outline-primary:hover {
+  border-color: var(--ccst-navy);
+  background: var(--ccst-navy);
+  color: #fff;
+}
+
+.admin-shell .form-label,
+.maintenance-shell .form-label {
+  color: var(--ccst-ink);
+}
+
+.admin-shell .form-control::placeholder,
+.maintenance-shell .form-control::placeholder {
+  color: var(--ccst-muted);
+  opacity: 1;
+}
+
+.admin-shell .btn-outline-secondary,
+.maintenance-shell .btn-outline-secondary {
+  border-color: var(--ccst-line);
+  color: var(--ccst-ink);
+}
+
+.admin-shell .btn-outline-secondary:hover,
+.maintenance-shell .btn-outline-secondary:hover {
+  border-color: var(--ccst-navy);
+  background: var(--ccst-highlight);
+  color: var(--ccst-navy);
+}
+
+.admin-shell .inventory-status {
+  border: 1px solid var(--ccst-line);
+  background: var(--ccst-highlight);
+  color: var(--ccst-navy);
+}
+
+.admin-shell .dashboard-stat-icon,
+.admin-shell .icon-teal,
+.admin-shell .icon-blue,
+.admin-shell .icon-orange,
+.admin-shell .icon-sky,
+.admin-shell .student-avatar,
+.admin-shell .student-directory-avatar,
+.admin-shell .admin-user-avatar {
+  background: var(--ccst-highlight);
+  color: var(--ccst-navy);
+}
+
+.admin-shell .admin-logout {
+  color: var(--ccst-highlight) !important;
+}
+
+.admin-shell .maintenance-records-metric-icon,
+.admin-shell .maintenance-records-table-title > span,
+.maintenance-shell .maintenance-records-metric-icon,
+.maintenance-shell .maintenance-records-table-title > span,
+.maintenance-shell .maintenance-metric-icon {
+  display: none;
+}
+
+.admin-shell .maintenance-records-metric,
+.maintenance-shell .maintenance-records-metric,
+.maintenance-shell .maintenance-metric {
+  gap: 0;
+}
+
+.admin-shell .maintenance-records-table-title,
+.maintenance-shell .maintenance-records-table-title {
+  gap: 0;
+}
+
+.admin-shell .dashboard-eyebrow,
+.maintenance-shell .dashboard-eyebrow {
+  color: var(--ccst-navy);
+}
+
+.admin-shell .dashboard-subtitle,
+.maintenance-shell .dashboard-subtitle {
+  color: var(--ccst-muted);
+}
+
+.admin-shell .inventory-tag {
+  color: var(--ccst-navy) !important;
+}
+
+.admin-shell .inventory-item-link,
+.maintenance-shell .inventory-item-link {
+  color: var(--ccst-navy);
+}
+
+.admin-shell .inventory-item-link:hover,
+.maintenance-shell .inventory-item-link:hover {
+  color: var(--ccst-navy-deep);
+}
+
+.admin-shell .quick-action-teal,
+.maintenance-shell .quick-action-teal {
+  background: var(--ccst-highlight);
+  color: var(--ccst-navy);
+}
+
+.admin-shell .quick-action-teal:hover,
+.admin-shell .quick-action-teal:focus,
+.maintenance-shell .quick-action-teal:hover,
+.maintenance-shell .quick-action-teal:focus {
+  background: #d7e6fb;
+  color: var(--ccst-navy);
+}
+
+.admin-shell .admin-alert-link {
+  border-color: var(--ccst-line);
+  background: var(--ccst-highlight);
+  color: var(--ccst-navy);
+}
+
+.admin-shell .admin-notification-dropdown > summary {
+  border-color: #ffffff70;
+  background: var(--ccst-highlight);
+  color: var(--ccst-navy);
+}
+
+.admin-shell .admin-notification-dropdown > summary:focus-visible,
+.admin-shell .content a:focus-visible,
+.maintenance-shell .content a:focus-visible {
+  outline: 2px solid var(--ccst-navy);
+  outline-offset: 2px;
+}
+
+.admin-shell .sidebar a:focus-visible,
+.maintenance-shell .sidebar a:focus-visible {
+  outline-color: var(--ccst-highlight);
+}
+
+.admin-shell .btn:focus-visible,
+.maintenance-shell .btn:focus-visible {
+  outline: 2px solid var(--ccst-navy);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px var(--ccst-highlight);
+}
+
+.admin-shell .inventory-table thead th:first-child {
+  background: var(--ccst-highlight);
+}
+
+.admin-shell .inventory-table tbody tr:hover td:first-child {
+  background: var(--ccst-highlight);
+}
+
+.reports-page {
+  --reports-navy: var(--ccst-navy);
+  --reports-muted: var(--ccst-muted);
+  --reports-border: var(--ccst-line);
+  background: var(--ccst-wash);
+  color: var(--ccst-ink);
+}
+
+.reports-page .reports-metric-grid article,
+.reports-page .reports-overview-card {
+  border-color: var(--ccst-line);
+  background: var(--ccst-white);
+  background-image: none;
+  color: var(--ccst-ink);
+  box-shadow: none;
+}
+
+.reports-page .reports-metric-grid strong,
+.reports-page .reports-overview-card :where(h2, strong) {
+  color: var(--ccst-ink);
+}
+
+.reports-page .reports-page-heading .dashboard-eyebrow {
+  color: var(--ccst-navy);
+}
+
+.reports-page .reports-table-empty,
+.reports-page .reports-data-note,
+.reports-page .reports-chart-empty {
+  color: var(--ccst-muted);
+}
+
 .rooms-add-form label { display: grid; flex: 1; gap: 5px; color: #40546d; font-size: 12px; font-weight: 600; }
 @media (max-width: 650px) {
   .rooms-detail-heading { align-items: stretch; flex-direction: column; }
