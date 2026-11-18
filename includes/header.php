@@ -53,8 +53,8 @@ if($adminNotificationsCleared)$adminNotificationCount=0;
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?=e($systemName)?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-<link href="<?=e(BASE_URL)?>/assets/style.css?v=navy-3" rel="stylesheet">
-<link href="<?=e(BASE_URL)?>/assets/system.css?v=navy-7" rel="stylesheet">
+<link href="<?=e(BASE_URL)?>/assets/style.css?v=old-bg-1" rel="stylesheet">
+<link href="<?=e(BASE_URL)?>/assets/system.css?v=old-bg-1" rel="stylesheet">
 <?php if(basename($_SERVER['PHP_SELF'])==='my_id.php'): ?><link href="<?=e(BASE_URL)?>/assets/id-card.css" rel="stylesheet"><?php endif; ?></head><body class="<?=$dashboardShell?'admin-shell '.($u['role']==='staff'?'staff-shell':''):($maintenanceShell?'maintenance-shell':'')?>">
 <nav class="navbar topbar px-3">
 <?php if($dashboardShell||$maintenanceShell): ?>
